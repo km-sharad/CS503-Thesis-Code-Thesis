@@ -1,5 +1,4 @@
 import cdhd
-from cdhd_global import CDHDGlobals
 import random
 import tensorflow as tf
 
@@ -65,47 +64,6 @@ def train():
     
     #global all_training_data
     CDHDGlobals.all_training_data = []
-
-
-    '''
-    with open("cdhd_anno_training_data.txt") as f:
-      for row in iter(f):
-        CDHDGlobals.all_training_data.append(row)
-
-    #global training_rows_indexes
-    CDHDGlobals.training_rows_indexes = xrange(len(CDHDGlobals.all_training_data))
-
-    #global total_batches
-    CDHDGlobals.total_batches = len(CDHDGlobals.training_rows_indexes)/CDHDGlobals.batch_size  
-
-    for epoch in xrange(CDHDGlobals.epochs):
-      random.shuffle(CDHDGlobals.training_rows_indexes)
-
-  		#will hold 192 batches of 10 elements each
-      #global batches
-      CDHDGlobals.batches = []
-
-      #global batch_idx
-      CDHDGlobals.batch_idx = 0
-
-      i = 0
-
-      while i < CDHDGlobals.total_batches:
-        batch = []
-        for k in CDHDGlobals.training_rows_indexes[i*10:(i*10) + 10]:
-          batch.append(CDHDGlobals.all_training_data[k])
-      
-        CDHDGlobals.batches.append(batch)
-        i = i + 1
-
-      print("*** i: ", i)
-
-  		#batches contains 192 batches of 10 elements each
-      for batch in CDHDGlobals.batches:
-  			#sess.run([train_op, loss])
-        sess.run([images, labels])
-        CDHDGlobals.batch_idx = CDHDGlobals.batch_idx + 1
-    '''
 
     for step in xrange(FLAGS.max_steps):
       start_time = time.time()

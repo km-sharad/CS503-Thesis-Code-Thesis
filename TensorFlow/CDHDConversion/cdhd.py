@@ -5,6 +5,7 @@ Contains CDHD Model
 import tensorflow as tf
 from cdhd_global import CDHDGlobals
 import cdhd_input
+import os
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -68,10 +69,6 @@ def distorted_inputs():
   Raises:
     ValueError: If no data_dir
   """
-  print('*********here*****')
-  print(CDHDGlobals.batch_idx)
-  print(CDHDGlobals.batches[CDHDGlobals.batch_idx])
-  print('*********here*****')
 
   if not FLAGS.data_dir:
     raise ValueError('Please supply a data_dir')
