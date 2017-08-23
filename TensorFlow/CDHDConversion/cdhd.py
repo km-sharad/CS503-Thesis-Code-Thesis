@@ -10,12 +10,8 @@ import os
 FLAGS = tf.app.flags.FLAGS
 
 # Basic model parameters.
-tf.app.flags.DEFINE_integer('batch_size', 10,
-                            """Number of images to process in a batch.""")
-tf.app.flags.DEFINE_string('data_dir', '/home/sharad/CS503-Thesis/car_dataset/',
-                           """Path to the CDHD data directory.""")
-tf.app.flags.DEFINE_boolean('use_fp16', False,
-                            """Train the model using fp16.""")
+tf.app.flags.DEFINE_integer('batch_size', 192,"""Number of images to process in a batch.""")
+tf.app.flags.DEFINE_boolean('use_fp16', False, """Train the model using fp16.""")
 
 def _variable_on_cpu(name, shape, initializer):
   """Helper to create a Variable stored on CPU memory.
@@ -59,23 +55,15 @@ def _variable_with_weight_decay(name, shape, stddev, wd):
     tf.add_to_collection('losses', weight_decay)
   return var
 
-def distorted_inputs():
+def distorted_inputs(batch_size=FLAGS.batch_size):
   """Construct distorted input for CDHD training using the Reader ops.
 
   Returns:
     images: Images. 4D tensor of [batch_size, IMAGE_SIZE, IMAGE_SIZE, 3] size.
     labels: Labels. 1D tensor of [batch_size] size.    
-
-  Raises:
-    ValueError: If no data_dir
   """
 
-  if not FLAGS.data_dir:
-    raise ValueError('Please supply a data_dir')
-  data_dir = os.path.join(FLAGS.data_dir)
-
-  images, meta = cdhd_input.distorted_inputs(data_dir=data_dir,
-                                                  batch_size=FLAGS.batch_size)
+  images, meta = cdhd_input.distorted_inputs(batch_size=FLAGS.batch_size)
   if FLAGS.use_fp16:
     images = tf.cast(images, tf.float16)
     labels = tf.cast(labels, tf.float16)
