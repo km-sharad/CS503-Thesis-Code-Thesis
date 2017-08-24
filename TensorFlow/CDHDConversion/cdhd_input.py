@@ -33,7 +33,7 @@ def distorted_inputs(batch_size):
   anno_file = open('cdhd_anno_training_data.txt')
   anno_file_lines = anno_file.readlines()
 
-  for x in xrange(batch_size):
+  for x in batch_indexes:
     anno_file_batch_rows.append(anno_file_lines[x])
 
   #images = np.array([])
@@ -42,37 +42,23 @@ def distorted_inputs(batch_size):
   #for image_idx in xrange(batch_size):
   for image_idx in xrange(5):
     #read and convert images into numpy array
-    split_row = anno_file_batch_rows[image_idx].split('|')
-
-    im = Image.open(FLAGS.data_dir + split_row[2])
-    print im.size
-
-    in_data = np.transpose(np.asarray(im, dtype=np.uint8),(1,0,2))
-    print in_data.shape
-
-    tensor_images = tf.convert_to_tensor(in_data)
-    print tensor_images
-
-    #img_numpy_arr = array(Image.open(FLAGS.data_dir + split_row[2]))
-    #images.append(images, array(Image.open(FLAGS.data_dir + split_row[2])))
-    
-    #tensor_images = tf.convert_to_tensor(images)
-
-    #print('*** len: ', len(images[0]), len(images[0][0]), len(images[0][0][0]))
-
-    '''
-    img_filenameQ = tf.train.string_input_producer([FLAGS.data_dir + split_row[2]],num_epochs=None)
-    recordReader = tf.TFRecordReader()
-    key, value = recordReader.read(img_filenameQ)
-
-    #img_3d = tf.image.decode_jpeg(value, channels=3)
-    img_3d = tf.decode_raw(value, tf.uint8)
-    #print('*** ', img_3d)    
-    '''
-
-    meta_dict['gt_x_coord'] = split_row[0]
-    meta_dict['gt_y_coord'] = split_row[1]
-    meta_dict['img_size'] = [int(i) for i in split_row[3].split(',')]
-    meta_dict['bbox'] = [int(i) for i in split_row[8][0:len(split_row[8]) - 2].split(',')]
+    meta_rec = anno_file_batch_rows[image_idx].split('|')
+    getImage(meta_rec)
 
   return images, meta_dict
+
+def getImage(meta_rec):
+    meta_dict = {}
+    im = Image.open(FLAGS.data_dir + meta_rec[2])
+    print im.size
+
+    im_np_arr = np.transpose(np.asarray(im, dtype=np.uint8),(1,0,2))
+    print im_np_arr.shape
+
+    tensor_images = tf.convert_to_tensor(im_np_arr)
+    print tensor_images
+
+    meta_dict['gt_x_coord'] = meta_rec[0]
+    meta_dict['gt_y_coord'] = meta_rec[1]
+    meta_dict['img_size'] = [int(i) for i in meta_rec[3].split(',')]
+    meta_dict['bbox'] = [int(i) for i in meta_rec[8][0:len(meta_rec[8]) - 2].split(',')]
