@@ -13,6 +13,8 @@ FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string('data_dir', '../../../../car_dataset/', """Path to the CDHD data directory.""")
 tf.app.flags.DEFINE_integer('total_visible_training_images', 1920,
                               """Number of training images where car door handle is visible.""")
+tf.app.flags.DEFINE_string('max_im_side', 500, """Default max image side.""")
+
 
 def distorted_inputs(batch_size):
   """Construct distorted input for CIFAR training using the Reader ops.
@@ -48,17 +50,36 @@ def distorted_inputs(batch_size):
   return images, meta_dict
 
 def getImage(meta_rec):
-    meta_dict = {}
+    im_meta_dict = {}
     im = Image.open(FLAGS.data_dir + meta_rec[2])
+    print meta_rec[2]
     print im.size
+
+    im_meta_dict['gt_x_coord'] = meta_rec[0]
+    im_meta_dict['gt_y_coord'] = meta_rec[1]
+    im_meta_dict['img_size'] = [int(i) for i in meta_rec[3].split(',')]
+    im_meta_dict['bbox'] = [int(i) for i in meta_rec[8][0:len(meta_rec[8]) - 2].split(',')]    
 
     im_np_arr = np.transpose(np.asarray(im, dtype=np.uint8),(1,0,2))
     print im_np_arr.shape
 
-    tensor_images = tf.convert_to_tensor(im_np_arr)
-    print tensor_images
+    getAugmentedImage(im_np_arr, im_meta_dict)
 
-    meta_dict['gt_x_coord'] = meta_rec[0]
-    meta_dict['gt_y_coord'] = meta_rec[1]
-    meta_dict['img_size'] = [int(i) for i in meta_rec[3].split(',')]
-    meta_dict['bbox'] = [int(i) for i in meta_rec[8][0:len(meta_rec[8]) - 2].split(',')]
+    #Compute the default scaling
+    scale = round(FLAGS.max_im_side/float(np.amax(im_np_arr.shape)),2)
+
+    #tensor_images = tf.convert_to_tensor(im_np_arr)
+    #print tensor_images
+
+def getAugmentedImage(im, im_meta_dict):
+  lrFlipCDHDDataRecord(im, im_meta_dict)  
+
+def lrFlipCDHDDataRecord(im, im_meta_dict):
+  if random.uniform(0, 1) > 0.5:
+    im = np.fliplr(im)
+    print('after flip: ', im.shape)
+    return im, im_meta_dict
+  else:
+    return im, im_meta_dict
+
+
