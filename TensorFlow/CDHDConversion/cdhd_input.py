@@ -3,6 +3,10 @@ import random
 import numpy as np
 from PIL import Image
 from numpy import array
+from math import log
+from math import exp
+from scipy.misc import imresize
+from scipy.ndimage import zoom
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -44,7 +48,8 @@ def distorted_inputs(batch_size):
   #for image_idx in xrange(batch_size):
   for image_idx in xrange(5):
     #read and convert images into numpy array
-    meta_rec = anno_file_batch_rows[image_idx].split('|')
+    #meta_rec = anno_file_batch_rows[image_idx].split('|')
+    meta_rec = anno_file_lines[image_idx].split('|')
     getImage(meta_rec)
 
   return images, meta_dict
@@ -52,18 +57,16 @@ def distorted_inputs(batch_size):
 def getImage(meta_rec):
     im_meta_dict = {}
     im = Image.open(FLAGS.data_dir + meta_rec[2])
-    print meta_rec[2]
-    print im.size
 
-    im_meta_dict['gt_x_coord'] = meta_rec[0]
-    im_meta_dict['gt_y_coord'] = meta_rec[1]
+    im_meta_dict['gt_x_coord'] = int(float(meta_rec[0]))
+    im_meta_dict['gt_y_coord'] = int(float(meta_rec[1]))
     im_meta_dict['img_size'] = [int(i) for i in meta_rec[3].split(',')]
     im_meta_dict['bbox'] = [int(i) for i in meta_rec[8][0:len(meta_rec[8]) - 2].split(',')]    
 
     im_np_arr = np.transpose(np.asarray(im, dtype=np.uint8),(1,0,2))
-    print im_np_arr.shape
 
-    getAugmentedImage(im_np_arr, im_meta_dict)
+    [im, targets, scale] = getAugmentedImage(im_np_arr, im_meta_dict)
+    print(im.shape)
 
     #Compute the default scaling
     scale = round(FLAGS.max_im_side/float(np.amax(im_np_arr.shape)),2)
@@ -72,14 +75,28 @@ def getImage(meta_rec):
     #print tensor_images
 
 def getAugmentedImage(im, im_meta_dict):
-  lrFlipCDHDDataRecord(im, im_meta_dict)  
+  lrFlipCDHDDataRecord(im, im_meta_dict)
+  targets = [im_meta_dict['gt_x_coord'], im_meta_dict['gt_y_coord']]  
+
+  #add random scale jitter
+  scale_range = [round(log(0.6),4), round(log(1.25),4)]
+  scale = round(exp(random.uniform(0, 1) * (scale_range[1] - scale_range[0]) + scale_range[0]),2)
+  im = imresize(im, scale,interp='bilinear')
+  targets = [int(round(targets[0] * scale,0)), int(round(targets[1] * scale,0))]
+  
+  #TO-DO: random crop jitter
+
+  return [im, targets, scale]
 
 def lrFlipCDHDDataRecord(im, im_meta_dict):
   if random.uniform(0, 1) > 0.5:
     im = np.fliplr(im)
-    print('after flip: ', im.shape)
-    return im, im_meta_dict
-  else:
-    return im, im_meta_dict
 
+    #change x-coordinate of ground truth after flipping image
+    im_meta_dict['gt_x_coord'] = im.shape[0] - im_meta_dict['gt_x_coord']
+
+    #change x-coordinate of bounding box after flipping image
+    temp = im_meta_dict['bbox'][0]
+    im_meta_dict['bbox'][0] = im.shape[0] - im_meta_dict['bbox'][2]
+    im_meta_dict['bbox'][2] = im.shape[0] - temp
 
