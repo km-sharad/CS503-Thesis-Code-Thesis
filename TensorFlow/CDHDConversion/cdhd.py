@@ -55,7 +55,7 @@ def _variable_with_weight_decay(name, shape, stddev, wd):
     tf.add_to_collection('losses', weight_decay)
   return var
 
-def distorted_inputs(batch_size=FLAGS.batch_size):
+def distorted_inputs(stats_dict,batch_size=FLAGS.batch_size):
   """Construct distorted input for CDHD training using the Reader ops.
 
   Returns:
@@ -63,7 +63,7 @@ def distorted_inputs(batch_size=FLAGS.batch_size):
     labels: Labels. 1D tensor of [batch_size] size.    
   """
 
-  images, meta = cdhd_input.distorted_inputs(batch_size=FLAGS.batch_size)
+  images, meta = cdhd_input.distorted_inputs(stats_dict, batch_size=FLAGS.batch_size)
   if FLAGS.use_fp16:
     images = tf.cast(images, tf.float16)
     labels = tf.cast(labels, tf.float16)

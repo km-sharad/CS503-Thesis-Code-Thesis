@@ -10,17 +10,19 @@ from scipy.ndimage import zoom
 
 FLAGS = tf.app.flags.FLAGS
 
-#
+#server
 #tf.app.flags.DEFINE_string('data_dir', '/home/sharad/CS503-Thesis/car_dataset/', """Path to the CDHD data directory.""")
 
 #local
-tf.app.flags.DEFINE_string('data_dir', '../../../../car_dataset/', """Path to the CDHD data directory.""")
-tf.app.flags.DEFINE_integer('total_visible_training_images', 1920,
-                              """Number of training images where car door handle is visible.""")
+#tf.app.flags.DEFINE_string('data_dir', '../../../../car_dataset/', """Path to the CDHD data directory.""")
+#tf.app.flags.DEFINE_integer('total_visible_training_images', 1920,
+#                              """Number of training images where car door handle is visible.""")
 tf.app.flags.DEFINE_string('max_im_side', 500, """Default max image side.""")
+tf.app.flags.DEFINE_string('init_padding', 32, """Initial image padding pixels.""")
+tf.app.flags.DEFINE_string('min_side', 64, """min_side.""")
+tf.app.flags.DEFINE_string('padding_type', 'replicate', """padding_type.""")
 
-
-def distorted_inputs(batch_size):
+def distorted_inputs(stats_dict, batch_size):
   """Construct distorted input for CIFAR training using the Reader ops.
 
   Args:
@@ -42,37 +44,101 @@ def distorted_inputs(batch_size):
   for x in batch_indexes:
     anno_file_batch_rows.append(anno_file_lines[x])
 
-  #images = np.array([])
+  meta_dict = {}  #delete this
   images = []
-  meta_dict = {}
+  target_locs = []
+  infos = []
+
   #for image_idx in xrange(batch_size):
-  for image_idx in xrange(5):
+  for image_idx in xrange(10):
     #read and convert images into numpy array
     #meta_rec = anno_file_batch_rows[image_idx].split('|')
     meta_rec = anno_file_lines[image_idx].split('|')
-    getImage(meta_rec)
+    [image, target_loc, info] = getImage(meta_rec, stats_dict)
 
-  return images, meta_dict
+    images.append(image)
+    target_locs.append(target_loc)
+    infos.append(info)
 
-def getImage(meta_rec):
+  im_sizes = [info['im_size'] for info in infos]
+  padding = [info['padding'] for info in infos]
+  aug_target_loc = [info['aug_target_loc'] for info in infos]
+  final_scale = [info['final_scale'] for info in infos]
+  im_org = [info['im_org'] for info in infos]
+
+  concatWithPadding(images, im_sizes)
+
+  #return images, meta_dict
+  return [], meta_dict
+
+def getImage(meta_rec, stats_dict):
     im_meta_dict = {}
-    im = Image.open(FLAGS.data_dir + meta_rec[2])
-
     im_meta_dict['gt_x_coord'] = int(float(meta_rec[0]))
     im_meta_dict['gt_y_coord'] = int(float(meta_rec[1]))
     im_meta_dict['img_size'] = [int(i) for i in meta_rec[3].split(',')]
     im_meta_dict['bbox'] = [int(i) for i in meta_rec[8][0:len(meta_rec[8]) - 2].split(',')]    
 
-    im_np_arr = np.transpose(np.asarray(im, dtype=np.uint8),(1,0,2))
+    image = Image.open(FLAGS.data_dir + meta_rec[2])
 
-    [im, targets, scale] = getAugmentedImage(im_np_arr, im_meta_dict)
-    print(im.shape)
+    try:
+      im = np.array(image.getdata()).reshape(image.size[0], image.size[1], 3)
+    except ValueError:
+      im = np.dstack([im]*3)
+
+    im_org = im      
 
     #Compute the default scaling
-    scale = round(FLAGS.max_im_side/float(np.amax(im_np_arr.shape)),2)
+    scale = round(FLAGS.max_im_side/float(np.amax(im.shape)),4)    
+
+    [im, target_loc, aug_scale] = getAugmentedImage(im, im_meta_dict)
+
+    aug_target_loc = target_loc
+    im_org_scaled = imresize(im, scale,interp='bilinear')
+    im = im_org_scaled
+    target_loc[0] = int(round(target_loc[0] * scale,0))    
+    target_loc[1] = int(round(target_loc[1] * scale,0))    
+
+    im = np.subtract(im, stats_dict['mean_pixel'])
+    im = np.divide(im, stats_dict['std_pixel'])
+
+    im_size = np.asarray(im.shape)
+
+    padding = np.zeros(4) #T/B/L/R - top, bottom, left, right
+    padding = padding + FLAGS.init_padding;
+
+    target_loc = target_loc + FLAGS.init_padding
+    im_size[0] = im_size[0] + (2 * FLAGS.init_padding)
+    im_size[1] = im_size[1] + (2 * FLAGS.init_padding)
+
+    #Pad if smaller than minimum size
+    min_side_padding = np.maximum(np.subtract(FLAGS.min_side - im_size[0:2],np.zeros(2)),np.zeros(2))
+    padding[1] = padding[1] + min_side_padding[0]
+    padding[3] = padding[3] + min_side_padding[1]
+    im_size[0] = im_size[0] + min_side_padding[0]
+    im_size[1] = im_size[1] + min_side_padding[1]
+
+    padding = padding.astype(int)
+    padding_tuple = ((padding[0],padding[1]), (padding[2],padding[3]), (0,0))
+    im = np.pad(im, padding_tuple,'edge')
+
+    assert (np.array_equal(im_size, np.asarray(im.shape))), "assertion error in image preprocessing"
+
+    final_scale = aug_scale * scale
+
+    info = {}
+    info['aug_scale'] = aug_scale
+    info['aug_target_loc'] = aug_target_loc
+    info['im_org'] = im_org
+    info['im_size'] = im_size
+    info['final_scale'] = final_scale
+    #info.torso_height = ?
+    #info.im_org_scaled = ?
+    info['padding'] = padding
 
     #tensor_images = tf.convert_to_tensor(im_np_arr)
     #print tensor_images
+
+    return [im, target_loc, info]
 
 def getAugmentedImage(im, im_meta_dict):
   lrFlipCDHDDataRecord(im, im_meta_dict)
@@ -82,11 +148,14 @@ def getAugmentedImage(im, im_meta_dict):
   scale_range = [round(log(0.6),4), round(log(1.25),4)]
   scale = round(exp(random.uniform(0, 1) * (scale_range[1] - scale_range[0]) + scale_range[0]),2)
   im = imresize(im, scale,interp='bilinear')
-  targets = [int(round(targets[0] * scale,0)), int(round(targets[1] * scale,0))]
+  #targets = [int(round(targets[0] * scale,0)), int(round(targets[1] * scale,0))]
+  targets_np = np.zeros(2)
+  targets_np[0] = int(round(targets[0] * scale,0))
+  targets_np[1] = int(round(targets[1] * scale,0))
   
   #TO-DO: random crop jitter
 
-  return [im, targets, scale]
+  return [im, targets_np, scale]
 
 def lrFlipCDHDDataRecord(im, im_meta_dict):
   if random.uniform(0, 1) > 0.5:
@@ -99,4 +168,10 @@ def lrFlipCDHDDataRecord(im, im_meta_dict):
     temp = im_meta_dict['bbox'][0]
     im_meta_dict['bbox'][0] = im.shape[0] - im_meta_dict['bbox'][2]
     im_meta_dict['bbox'][2] = im.shape[0] - temp
+
+def concatWithPadding(images, im_sizes):
+  max_dim = np.amax(im_sizes, axis=0)
+  print('max: ', max_dim)
+
+
 
