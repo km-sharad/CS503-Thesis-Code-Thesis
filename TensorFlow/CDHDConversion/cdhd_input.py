@@ -21,6 +21,9 @@ tf.app.flags.DEFINE_string('max_im_side', 500, """Default max image side.""")
 tf.app.flags.DEFINE_string('init_padding', 32, """Initial image padding pixels.""")
 tf.app.flags.DEFINE_string('min_side', 64, """min_side.""")
 tf.app.flags.DEFINE_string('padding_type', 'replicate', """padding_type.""")
+tf.app.flags.DEFINE_string('start_offset', 16, """start_offset.""")
+tf.app.flags.DEFINE_string('output_stride', 16, """output_stride.""")
+
 
 def distorted_inputs(stats_dict, batch_size):
   """Construct distorted input for CIFAR training using the Reader ops.
@@ -60,13 +63,33 @@ def distorted_inputs(stats_dict, batch_size):
     target_locs.append(target_loc)
     infos.append(info)
 
-  im_sizes = [info['im_size'] for info in infos]
-  padding = [info['padding'] for info in infos]
-  aug_target_loc = [info['aug_target_loc'] for info in infos]
-  final_scale = [info['final_scale'] for info in infos]
-  im_org = [info['im_org'] for info in infos]
+  im_sizes = np.asarray([info['im_size'] for info in infos])
+  padding = np.asarray([info['padding'] for info in infos])
+  aug_target_loc = np.asarray([info['aug_target_loc'] for info in infos])
+  final_scale = np.asarray([info['final_scale'] for info in infos])
+  im_org = np.asarray([info['im_org'] for info in infos])
 
-  concatWithPadding(images, im_sizes)
+  print('padding before: ', padding)
+
+  padded_images, cat_padding = concatWithPadding(np.asarray(images), np.asarray(im_sizes))
+  padding = padding + cat_padding
+
+  
+  print('cat padding : ', cat_padding)
+  print('padding after: ', padding)
+
+  x = np.arange(FLAGS.start_offset, padded_images.shape[1], FLAGS.output_stride)
+  y = np.arange(FLAGS.start_offset, padded_images.shape[2], FLAGS.output_stride)
+  out_locs_list = []
+  for xi in xrange(x.shape[0]):
+    for yi in xrange(y.shape[0]):
+      out_locs_list.append((x[xi], y[yi]))
+
+  out_locs = np.asarray(out_locs_list)
+
+  gt_coords = np.round(np.divide(np.subtract(np.asarray(target_locs),FLAGS.start_offset), 
+                  float((FLAGS.output_stride + 1))),2)
+
 
   #return images, meta_dict
   return [], meta_dict
@@ -91,7 +114,6 @@ def getImage(meta_rec, stats_dict):
     scale = round(FLAGS.max_im_side/float(np.amax(im.shape)),4)    
 
     [im, target_loc, aug_scale] = getAugmentedImage(im, im_meta_dict)
-
     aug_target_loc = target_loc
     im_org_scaled = imresize(im, scale,interp='bilinear')
     im = im_org_scaled
@@ -117,11 +139,18 @@ def getImage(meta_rec, stats_dict):
     im_size[0] = im_size[0] + min_side_padding[0]
     im_size[1] = im_size[1] + min_side_padding[1]
 
+    size_padding = computePaddingForImage(im_size, FLAGS.output_stride)
+    padding[1] = padding[1] + size_padding[0]
+    padding[3] = padding[3] + size_padding[1]
+    im_size[0] = im_size[0] + size_padding[0]
+    im_size[1] = im_size[1] + size_padding[1]    
+
     padding = padding.astype(int)
+
     padding_tuple = ((padding[0],padding[1]), (padding[2],padding[3]), (0,0))
     im = np.pad(im, padding_tuple,'edge')
 
-    assert (np.array_equal(im_size, np.asarray(im.shape))), "assertion error in image preprocessing"
+    assert(np.array_equal(im_size, np.asarray(im.shape))), "assertion error in image preprocessing"
 
     final_scale = aug_scale * scale
 
@@ -141,14 +170,13 @@ def getImage(meta_rec, stats_dict):
     return [im, target_loc, info]
 
 def getAugmentedImage(im, im_meta_dict):
-  lrFlipCDHDDataRecord(im, im_meta_dict)
+  (im, im_meta_dict) = lrFlipCDHDDataRecord(im, im_meta_dict)
   targets = [im_meta_dict['gt_x_coord'], im_meta_dict['gt_y_coord']]  
 
   #add random scale jitter
   scale_range = [round(log(0.6),4), round(log(1.25),4)]
   scale = round(exp(random.uniform(0, 1) * (scale_range[1] - scale_range[0]) + scale_range[0]),2)
   im = imresize(im, scale,interp='bilinear')
-  #targets = [int(round(targets[0] * scale,0)), int(round(targets[1] * scale,0))]
   targets_np = np.zeros(2)
   targets_np[0] = int(round(targets[0] * scale,0))
   targets_np[1] = int(round(targets[1] * scale,0))
@@ -169,9 +197,29 @@ def lrFlipCDHDDataRecord(im, im_meta_dict):
     im_meta_dict['bbox'][0] = im.shape[0] - im_meta_dict['bbox'][2]
     im_meta_dict['bbox'][2] = im.shape[0] - temp
 
+  return im, im_meta_dict
+
 def concatWithPadding(images, im_sizes):
-  max_dim = np.amax(im_sizes, axis=0)
-  print('max: ', max_dim)
+  #print('im sz: ', im_sizes[:,:2])
+  #print('im sz mod: ', np.remainder(im_sizes[:,:2],3))
+  max_dim = np.amax(im_sizes, axis=0)[0:2]
+  paddings = np.zeros([len(images), 4])
+  padded_images = []
 
+  #TODO: find a way to perform following two steps in one operations
+  paddings[:,0::3] = np.subtract(max_dim, im_sizes[:,:2])
+  paddings[:, 0], paddings[:, 1] = paddings[:, 1], paddings[:, 0].copy()
 
+  paddings = paddings.astype(int)
+
+  for idx in xrange(len(images)):
+    padding_tuple = (((paddings[idx])[0], (paddings[idx])[1]), ((paddings[idx])[2], (paddings[idx])[3]), (0,0))
+    padded_images.append(np.pad(images[idx], padding_tuple,'edge'))
+
+  return np.asarray(padded_images), paddings
+
+def computePaddingForImage(im_size, stride):
+  padding = np.remainder(im_size[0:2],stride)
+  padding = np.remainder(np.subtract(stride, padding[0:2]), stride)
+  return padding
 
