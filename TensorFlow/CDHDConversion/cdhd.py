@@ -70,6 +70,7 @@ def distorted_inputs(stats_dict,batch_size=FLAGS.batch_size):
   return images, meta
 
 def inference(images):
+  print('shape: ', images.shape)
   # conv1
   with tf.variable_scope('conv1') as scope:
     kernel = _variable_with_weight_decay('weights',

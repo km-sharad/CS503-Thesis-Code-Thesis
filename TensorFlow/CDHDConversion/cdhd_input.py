@@ -47,16 +47,15 @@ def distorted_inputs(stats_dict, batch_size):
   for x in batch_indexes:
     anno_file_batch_rows.append(anno_file_lines[x])
 
-  meta_dict = {}  #delete this
   images = []
   target_locs = []
   infos = []
 
-  #for image_idx in xrange(batch_size):
-  for image_idx in xrange(10):
+  for image_idx in xrange(batch_size):
+  #for image_idx in xrange(10):
     #read and convert images into numpy array
-    #meta_rec = anno_file_batch_rows[image_idx].split('|')
-    meta_rec = anno_file_lines[image_idx].split('|')
+    meta_rec = anno_file_batch_rows[image_idx].split('|')
+    #meta_rec = anno_file_lines[image_idx].split('|')
     [image, target_loc, info] = getImage(meta_rec, stats_dict)
 
     images.append(image)
@@ -69,14 +68,8 @@ def distorted_inputs(stats_dict, batch_size):
   final_scale = np.asarray([info['final_scale'] for info in infos])
   im_org = np.asarray([info['im_org'] for info in infos])
 
-  print('padding before: ', padding)
-
   padded_images, cat_padding = concatWithPadding(np.asarray(images), np.asarray(im_sizes))
   padding = padding + cat_padding
-
-  
-  print('cat padding : ', cat_padding)
-  print('padding after: ', padding)
 
   x = np.arange(FLAGS.start_offset, padded_images.shape[1], FLAGS.output_stride)
   y = np.arange(FLAGS.start_offset, padded_images.shape[2], FLAGS.output_stride)
@@ -89,10 +82,23 @@ def distorted_inputs(stats_dict, batch_size):
 
   gt_coords = np.round(np.divide(np.subtract(np.asarray(target_locs),FLAGS.start_offset), 
                   float((FLAGS.output_stride + 1))),2)
+  org_gt_coords = np.asarray(target_locs)
 
+  meta_dict = {}
+  meta_dict['margins'] = []
+  meta_dict['out_locs'] = out_locs
+  meta_dict['scale'] = final_scale
+  meta_dict['gt_coords'] = gt_coords
+  meta_dict['org_gt_coords'] = org_gt_coords
+  meta_dict['aug_target_loc'] = aug_target_loc;
+  meta_dict['im_org'] = im_org;
+  #meta_dict['im_org_scaled'] = ?;
+  #meta_dict['torso_height'] = ?;
 
-  #return images, meta_dict
-  return [], meta_dict
+  print('pi shape: ', padded_images.shape)
+
+  return padded_images, meta_dict
+  #return [], meta_dict
 
 def getImage(meta_rec, stats_dict):
     im_meta_dict = {}
