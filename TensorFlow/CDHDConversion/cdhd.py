@@ -65,9 +65,8 @@ def distorted_inputs(stats_dict):
   """
 
   images, meta = cdhd_input.distorted_inputs(stats_dict, FLAGS.batch_size)
-  if FLAGS.use_fp16:
-    images = tf.cast(images, tf.float16)
-    labels = tf.cast(labels, tf.float16)
+
+  images = tf.cast(images, tf.float32)
   return images, meta
 
 def inference(images):
@@ -135,7 +134,7 @@ def inference(images):
                                          shape=[5, 5, 128, 128],
                                          stddev=1,
                                          wd=0.0)
-    conv = tf.nn.conv2d(conv4, kernel, [1, 1, 1, 1], padding='SAME')
+    conv = tf.nn.conv2d(conv5, kernel, [1, 1, 1, 1], padding='SAME')
     biases = _variable_on_cpu('biases', [128], tf.constant_initializer(1.0))
     pre_activation = tf.nn.bias_add(conv, biases)
     conv6 = tf.nn.relu(pre_activation, name=scope.name)                

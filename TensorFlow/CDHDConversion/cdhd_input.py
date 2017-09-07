@@ -52,7 +52,7 @@ def distorted_inputs(stats_dict, batch_size):
   infos = []
 
   #for image_idx in xrange(batch_size):
-  for image_idx in xrange(10):
+  for image_idx in xrange(96):
     #read and convert images into numpy array
     #meta_rec = anno_file_batch_rows[image_idx].split('|')
     meta_rec = anno_file_lines[image_idx].split('|')
@@ -97,7 +97,11 @@ def distorted_inputs(stats_dict, batch_size):
 
   print('pi shape: ', padded_images.shape)
 
-  return padded_images, meta_dict
+  images_tensor = tf.convert_to_tensor(padded_images)
+
+  print('image tensor', images_tensor)
+
+  return images_tensor, meta_dict
   #return [], meta_dict
 
 def getImage(meta_rec, stats_dict):
