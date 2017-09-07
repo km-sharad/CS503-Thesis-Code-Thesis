@@ -51,11 +51,11 @@ def distorted_inputs(stats_dict, batch_size):
   target_locs = []
   infos = []
 
-  for image_idx in xrange(batch_size):
-  #for image_idx in xrange(10):
+  #for image_idx in xrange(batch_size):
+  for image_idx in xrange(10):
     #read and convert images into numpy array
-    meta_rec = anno_file_batch_rows[image_idx].split('|')
-    #meta_rec = anno_file_lines[image_idx].split('|')
+    #meta_rec = anno_file_batch_rows[image_idx].split('|')
+    meta_rec = anno_file_lines[image_idx].split('|')
     [image, target_loc, info] = getImage(meta_rec, stats_dict)
 
     images.append(image)
@@ -112,7 +112,7 @@ def getImage(meta_rec, stats_dict):
     try:
       im = np.array(image.getdata()).reshape(image.size[0], image.size[1], 3)
     except ValueError:
-      im = np.dstack([im]*3)
+      im = np.dstack([np.array(image.getdata()).reshape(image.size[0], image.size[1])]*3)
 
     im_org = im      
 
@@ -206,8 +206,6 @@ def lrFlipCDHDDataRecord(im, im_meta_dict):
   return im, im_meta_dict
 
 def concatWithPadding(images, im_sizes):
-  #print('im sz: ', im_sizes[:,:2])
-  #print('im sz mod: ', np.remainder(im_sizes[:,:2],3))
   max_dim = np.amax(im_sizes, axis=0)[0:2]
   paddings = np.zeros([len(images), 4])
   padded_images = []
