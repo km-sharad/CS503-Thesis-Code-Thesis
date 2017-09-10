@@ -52,7 +52,7 @@ def distorted_inputs(stats_dict, batch_size):
   infos = []
 
   #for image_idx in xrange(batch_size):
-  for image_idx in xrange(96):
+  for image_idx in xrange(10):
     #read and convert images into numpy array
     #meta_rec = anno_file_batch_rows[image_idx].split('|')
     meta_rec = anno_file_lines[image_idx].split('|')
@@ -83,6 +83,8 @@ def distorted_inputs(stats_dict, batch_size):
   gt_coords = np.round(np.divide(np.subtract(np.asarray(target_locs),FLAGS.start_offset), 
                   float((FLAGS.output_stride + 1))),2)
   org_gt_coords = np.asarray(target_locs)
+
+  print('out locs shape: ', out_locs.shape)
 
   meta_dict = {}
   meta_dict['margins'] = []

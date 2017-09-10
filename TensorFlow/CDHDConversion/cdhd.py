@@ -126,7 +126,7 @@ def inference(images):
     conv = tf.nn.conv2d(conv4, kernel, [1, 2, 2, 1], padding='VALID')
     biases = _variable_on_cpu('biases', [128], tf.constant_initializer(1.0))
     pre_activation = tf.nn.bias_add(conv, biases)
-    conv5 = tf.nn.relu(pre_activation, name=scope.name)            
+    conv5 = tf.nn.relu(pre_activation, name=scope.name)    
 
   # conv6
   with tf.variable_scope('conv6') as scope:
@@ -137,5 +137,8 @@ def inference(images):
     conv = tf.nn.conv2d(conv5, kernel, [1, 1, 1, 1], padding='SAME')
     biases = _variable_on_cpu('biases', [128], tf.constant_initializer(1.0))
     pre_activation = tf.nn.bias_add(conv, biases)
-    conv6 = tf.nn.relu(pre_activation, name=scope.name)                
+    conv6 = tf.nn.relu(pre_activation, name=scope.name)  
+    print('conv6 tensor shape: ', conv6) 
+  
+
     
