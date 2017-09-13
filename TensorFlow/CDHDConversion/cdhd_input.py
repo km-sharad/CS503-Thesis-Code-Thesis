@@ -73,6 +73,7 @@ def distorted_inputs(stats_dict, batch_size):
 
   x = np.arange(FLAGS.start_offset, padded_images.shape[1], FLAGS.output_stride)
   y = np.arange(FLAGS.start_offset, padded_images.shape[2], FLAGS.output_stride)
+
   out_locs_list = []
   for xi in xrange(x.shape[0]):
     for yi in xrange(y.shape[0]):

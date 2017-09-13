@@ -6,12 +6,21 @@ import tensorflow as tf
 from cdhd_global import CDHDGlobals
 import cdhd_input
 import os
+import numpy as np
 
 FLAGS = tf.app.flags.FLAGS
 
 # Basic model parameters.
 tf.app.flags.DEFINE_integer('batch_size', 192,"""Number of images to process in a batch.""")
 tf.app.flags.DEFINE_boolean('use_fp16', False, """Train the model using fp16.""")
+tf.app.flags.DEFINE_boolean('steps', 3, """number of columns for steps in paper""")
+tf.app.flags.DEFINE_boolean('transition_dist', 1, """transition_dist""")
+tf.app.flags.DEFINE_boolean('loc_pred_scale', 1, """loc_pred_scale""")
+tf.app.flags.DEFINE_boolean('offset_pred_weight', 0.1, """offset_pred_weight""")
+tf.app.flags.DEFINE_boolean('pred_factor', 50, """pred_factor""")
+tf.app.flags.DEFINE_boolean('nfc', 128, """number of filter channels""")
+tf.app.flags.DEFINE_boolean('grid_size', 50, """grid size""")
+tf.app.flags.DEFINE_boolean('grid_stride', 25, """grid stride""")
 
 def _variable_on_cpu(name, shape, initializer):
   """Helper to create a Variable stored on CPU memory.
@@ -138,7 +147,86 @@ def inference(images):
     biases = _variable_on_cpu('biases', [128], tf.constant_initializer(1.0))
     pre_activation = tf.nn.bias_add(conv, biases)
     conv6 = tf.nn.relu(pre_activation, name=scope.name)  
-    print('conv6 tensor shape: ', conv6) 
-  
 
+    doForward(conv6)
     
+  
+def doForward(x):
+  grid_x = np.arange(-FLAGS.grid_size, FLAGS.grid_size + 1, FLAGS.grid_stride)
+  grid_y = np.arange(-FLAGS.grid_size, FLAGS.grid_size + 1, FLAGS.grid_stride)
+
+  offset_grid_list = []
+  for xi in xrange(grid_x.shape[0]):
+    for yi in xrange(grid_y.shape[0]):
+      offset_grid_list.append((grid_x[xi], grid_y[yi]))
+
+  offset_grid = np.asarray(offset_grid_list) 
+  num_out_filters = offset_grid.shape[0] + 1;
+
+  '''
+  gt_loc = layer.org_gt_coords ./ loc_pred_scale;
+  shared_layers = layer.shared_layers;
+  shared_prefix = layer.shared_prefix;
+  '''
+
+  x_shape = x.get_shape().as_list()
+  n = x_shape[1] * x_shape[2]
+  xa = tf.cast(tf.divide(tf.ones([x_shape[0], x_shape[1],x_shape[2],1], tf.int32), n), tf.float32)
+  #xa = tf.cast(xa, tf.float32)
+
+  x = tf.concat(3, [xa,x])    #IN NEWER VERSION CORRECT COMMAND IS: tf.concat([xa,x], 3)
+  x_shape = x.get_shape().as_list()
+  print('x shape after concat: ', x_shape)
+
+  res_steps = np.zeros((1,FLAGS.steps))
+  all_preds = np.zeros((FLAGS.steps, 2, 1, x_shape[0]))
+  all_cents = np.zeros((FLAGS.steps, 2, 1, x_shape[0]))
+
+  for i in xrange(FLAGS.steps):
+    doForwardPass(x, i, num_out_filters)
+    
+def doForwardPass(x, i, num_out_filters):
+  columnActivation(x, i, num_out_filters)
+
+
+def columnActivation(x, column_num, num_out_filters):
+    with tf.variable_scope('col' + str(column_num) + '1') as scope:
+      kernel = _variable_with_weight_decay('weights',
+                                           shape=[5, 5, FLAGS.nfc + 1, FLAGS.nfc],
+                                           stddev=1,  #check if this is right
+                                           wd=0.0)
+      conv = tf.nn.conv2d(x, kernel, [1, 1, 1, 1], padding='SAME')
+      biases = _variable_on_cpu('biases', [FLAGS.nfc], tf.constant_initializer(1.0))
+      a = tf.nn.bias_add(conv, biases)
+
+      a_with_negatives_set_to_zero = tf.nn.relu(a)
+      a = tf.multiply(a, a_with_negatives_set_to_zero)
+
+    with tf.variable_scope('col' + str(column_num) + '2') as scope:
+      kernel = _variable_with_weight_decay('weights',
+                                           shape=[5, 5, FLAGS.nfc, FLAGS.nfc],
+                                           stddev=1,  #check if this is right
+                                           wd=0.0)
+      conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
+      biases = _variable_on_cpu('biases', [FLAGS.nfc], tf.constant_initializer(1.0))
+      a = tf.nn.bias_add(conv, biases)
+
+      a_with_negatives_set_to_zero = tf.nn.relu(a)
+      a = tf.multiply(a, a_with_negatives_set_to_zero)      
+
+    with tf.variable_scope('col' + str(column_num) + '3') as scope:
+      kernel = _variable_with_weight_decay('weights',
+                                           shape=[5, 5, FLAGS.nfc, num_out_filters],
+                                           stddev=1,  #check if this is right
+                                           wd=0.0)
+      conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
+      biases = _variable_on_cpu('biases', [num_out_filters], tf.constant_initializer(1.0))
+      a = tf.nn.bias_add(conv, biases)
+
+      print('a3 shape: ', a.get_shape().as_list())      
+      
+      #w = //slice a
+      #print('w sp: ', w.get_shape().as_list())
+
+      
+
