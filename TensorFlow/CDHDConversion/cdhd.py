@@ -78,7 +78,7 @@ def distorted_inputs(stats_dict):
   images = tf.cast(images, tf.float32)
   return images, meta
 
-def inference(images):
+def inference(images, meta):
   # conv1
   with tf.variable_scope('conv1') as scope:
     kernel = _variable_with_weight_decay('weights',
@@ -148,10 +148,13 @@ def inference(images):
     pre_activation = tf.nn.bias_add(conv, biases)
     conv6 = tf.nn.relu(pre_activation, name=scope.name)  
 
-    doForward(conv6)
+    doForward(conv6, meta)
     
   
-def doForward(x):
+def doForward(x, meta):
+
+  #TODO: assert(size(x, 1) * size(x, 2) == size(layer.out_locs, 1));
+
   grid_x = np.arange(-FLAGS.grid_size, FLAGS.grid_size + 1, FLAGS.grid_stride)
   grid_y = np.arange(-FLAGS.grid_size, FLAGS.grid_size + 1, FLAGS.grid_stride)
 
@@ -183,50 +186,67 @@ def doForward(x):
   all_cents = np.zeros((FLAGS.steps, 2, 1, x_shape[0]))
 
   for i in xrange(FLAGS.steps):
-    doForwardPass(x, i, num_out_filters)
+    doForwardPass(x, i, num_out_filters, meta)
     
-def doForwardPass(x, i, num_out_filters):
-  columnActivation(x, i, num_out_filters)
+def doForwardPass(x, i, num_out_filters, meta):
+  columnActivation(x, i, num_out_filters, meta)
 
 
-def columnActivation(x, column_num, num_out_filters):
-    with tf.variable_scope('col' + str(column_num) + '1') as scope:
-      kernel = _variable_with_weight_decay('weights',
-                                           shape=[5, 5, FLAGS.nfc + 1, FLAGS.nfc],
-                                           stddev=1,  #check if this is right
-                                           wd=0.0)
-      conv = tf.nn.conv2d(x, kernel, [1, 1, 1, 1], padding='SAME')
-      biases = _variable_on_cpu('biases', [FLAGS.nfc], tf.constant_initializer(1.0))
-      a = tf.nn.bias_add(conv, biases)
+def columnActivation(x, column_num, num_out_filters, meta):
+  with tf.variable_scope('col' + str(column_num) + '1') as scope:
+    kernel = _variable_with_weight_decay('weights',
+                                         shape=[5, 5, FLAGS.nfc + 1, FLAGS.nfc],
+                                         stddev=1,  #check if this is right
+                                         wd=0.0)
+    conv = tf.nn.conv2d(x, kernel, [1, 1, 1, 1], padding='SAME')
+    biases = _variable_on_cpu('biases', [FLAGS.nfc], tf.constant_initializer(1.0))
+    a = tf.nn.bias_add(conv, biases)
 
-      a_with_negatives_set_to_zero = tf.nn.relu(a)
-      a = tf.multiply(a, a_with_negatives_set_to_zero)
+    a_with_negatives_set_to_zero = tf.nn.relu(a)
+    a = tf.multiply(a, a_with_negatives_set_to_zero)
 
-    with tf.variable_scope('col' + str(column_num) + '2') as scope:
-      kernel = _variable_with_weight_decay('weights',
-                                           shape=[5, 5, FLAGS.nfc, FLAGS.nfc],
-                                           stddev=1,  #check if this is right
-                                           wd=0.0)
-      conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
-      biases = _variable_on_cpu('biases', [FLAGS.nfc], tf.constant_initializer(1.0))
-      a = tf.nn.bias_add(conv, biases)
+  with tf.variable_scope('col' + str(column_num) + '2') as scope:
+    kernel = _variable_with_weight_decay('weights',
+                                         shape=[5, 5, FLAGS.nfc, FLAGS.nfc],
+                                         stddev=1,  #check if this is right
+                                         wd=0.0)
+    conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
+    biases = _variable_on_cpu('biases', [FLAGS.nfc], tf.constant_initializer(1.0))
+    a = tf.nn.bias_add(conv, biases)
 
-      a_with_negatives_set_to_zero = tf.nn.relu(a)
-      a = tf.multiply(a, a_with_negatives_set_to_zero)      
+    a_with_negatives_set_to_zero = tf.nn.relu(a)
+    a = tf.multiply(a, a_with_negatives_set_to_zero)      
 
-    with tf.variable_scope('col' + str(column_num) + '3') as scope:
-      kernel = _variable_with_weight_decay('weights',
-                                           shape=[5, 5, FLAGS.nfc, num_out_filters],
-                                           stddev=1,  #check if this is right
-                                           wd=0.0)
-      conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
-      biases = _variable_on_cpu('biases', [num_out_filters], tf.constant_initializer(1.0))
-      a = tf.nn.bias_add(conv, biases)
+  with tf.variable_scope('col' + str(column_num) + '3') as scope:
+    kernel = _variable_with_weight_decay('weights',
+                                         shape=[5, 5, FLAGS.nfc, num_out_filters],
+                                         stddev=1,  #check if this is right
+                                         wd=0.0)
+    conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
+    biases = _variable_on_cpu('biases', [num_out_filters], tf.constant_initializer(1.0))
+    a = tf.nn.bias_add(conv, biases)
 
-      print('a3 shape: ', a.get_shape().as_list())      
-      
-      #w = //slice a
-      #print('w sp: ', w.get_shape().as_list())
+    print('a3 shape: ', a.get_shape().as_list())      
 
-      
+    w = a[:, :, :, 0:1]
+    print('w sp:: ', w.get_shape().as_list())
+    nw = getNormalizedLocationWeightsFast(w)    
+    nw_shape = nw.get_shape().as_list()
+    print('nw sp: ', nw_shape)
+    #print('nw new sp: ', tf.reshape(nw, [nw_shape[1] * nw_shape[2], 1, 1]))
+
+    out_locs_rs = meta['out_locs']
+    print('out_locs_rs size: ', out_locs_rs.shape)
+    print('out_locs_rs: ', out_locs_rs[1][1])
+
+def getNormalizedLocationWeightsFast(w):
+  #Softmax
+  #w_shape = w.get_shape().as_list()
+
+  a = tf.reduce_max(w, axis=(1,2))
+  ew = tf.exp(tf.subtract(w, a[:,None,None,:]))
+  sew = tf.reduce_sum(ew, axis=(1,2))
+  nw = tf.divide(ew,sew[:,None,None,:])
+  return nw
+
 

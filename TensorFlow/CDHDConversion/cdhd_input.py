@@ -23,7 +23,7 @@ tf.app.flags.DEFINE_string('min_side', 64, """min_side.""")
 tf.app.flags.DEFINE_string('padding_type', 'replicate', """padding_type.""")
 tf.app.flags.DEFINE_string('start_offset', 16, """start_offset.""")
 tf.app.flags.DEFINE_string('output_stride', 16, """output_stride.""")
-
+tf.app.flags.DEFINE_string('scaling_factor', round(500/float(3), 4), """scaling_factor""")
 
 def distorted_inputs(stats_dict, batch_size):
   """Construct distorted input for CIFAR training using the Reader ops.
@@ -85,7 +85,18 @@ def distorted_inputs(stats_dict, batch_size):
                   float((FLAGS.output_stride + 1))),2)
   org_gt_coords = np.asarray(target_locs)
 
+  '''
+  out_locs = out_locs ./ opts.scaling_factor;
+  org_gt_coords = org_gt_coords ./ opts.scaling_factor;
+  aug_target_loc = aug_target_loc ./ opts.scaling_factor;
+  '''
+
+  out_locs = np.divide(out_locs, FLAGS.scaling_factor)
+  org_gt_coords = np.divide(org_gt_coords, FLAGS.scaling_factor)
+  aug_target_loc = np.divide(aug_target_loc, FLAGS.scaling_factor)
+
   print('out locs shape: ', out_locs.shape)
+  print('out locs: ', out_locs[1][1])
 
   meta_dict = {}
   meta_dict['margins'] = []

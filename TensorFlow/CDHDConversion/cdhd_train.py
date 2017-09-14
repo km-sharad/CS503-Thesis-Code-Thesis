@@ -111,11 +111,11 @@ def train(stats_dict):
     global_step = tf.Variable(0, trainable=False)
 
     # Get images and labels for CDHD.
-    images, labels = cdhd.distorted_inputs(stats_dict)
+    images, meta = cdhd.distorted_inputs(stats_dict)
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
-    logits = cdhd.inference(images)
+    logits = cdhd.inference(images, meta)
 
   # Calculate loss. 
     loss = cdhd.loss(logits, labels)
