@@ -95,9 +95,6 @@ def distorted_inputs(stats_dict, batch_size):
   org_gt_coords = np.divide(org_gt_coords, FLAGS.scaling_factor)
   aug_target_loc = np.divide(aug_target_loc, FLAGS.scaling_factor)
 
-  print('out locs shape: ', out_locs.shape)
-  print('out locs: ', out_locs[1][1])
-
   meta_dict = {}
   meta_dict['margins'] = []
   meta_dict['out_locs'] = out_locs
@@ -109,14 +106,9 @@ def distorted_inputs(stats_dict, batch_size):
   #meta_dict['im_org_scaled'] = ?;
   #meta_dict['torso_height'] = ?;
 
-  print('pi shape: ', padded_images.shape)
-
   images_tensor = tf.convert_to_tensor(padded_images)
 
-  print('image tensor', images_tensor)
-
   return images_tensor, meta_dict
-  #return [], meta_dict
 
 def getImage(meta_rec, stats_dict):
     im_meta_dict = {}

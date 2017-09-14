@@ -179,7 +179,6 @@ def doForward(x, meta):
 
   x = tf.concat(3, [xa,x])    #IN NEWER VERSION CORRECT COMMAND IS: tf.concat([xa,x], 3)
   x_shape = x.get_shape().as_list()
-  print('x shape after concat: ', x_shape)
 
   res_steps = np.zeros((1,FLAGS.steps))
   all_preds = np.zeros((FLAGS.steps, 2, 1, x_shape[0]))
@@ -226,18 +225,27 @@ def columnActivation(x, column_num, num_out_filters, meta):
     biases = _variable_on_cpu('biases', [num_out_filters], tf.constant_initializer(1.0))
     a = tf.nn.bias_add(conv, biases)
 
-    print('a3 shape: ', a.get_shape().as_list())      
+    print('a shape: ', a.get_shape().as_list())      
 
     w = a[:, :, :, 0:1]
-    print('w sp:: ', w.get_shape().as_list())
+
+    print('w shape: ', w.get_shape().as_list())
+
     nw = getNormalizedLocationWeightsFast(w)    
     nw_shape = nw.get_shape().as_list()
-    print('nw sp: ', nw_shape)
-    #print('nw new sp: ', tf.reshape(nw, [nw_shape[1] * nw_shape[2], 1, 1]))
+    print('nw shape: ', nw_shape)
+    nw_reshape = tf.reshape(nw, [nw_shape[0], nw_shape[1] * nw_shape[2]])
 
-    out_locs_rs = meta['out_locs']
-    print('out_locs_rs size: ', out_locs_rs.shape)
-    print('out_locs_rs: ', out_locs_rs[1][1])
+    out_locs_rs = tf.convert_to_tensor(meta['out_locs'])
+    out_locs_rs = tf.cast(out_locs_rs, tf.float32)
+
+    pc = tf.multiply(nw_reshape[:,:,None], out_locs_rs[None,:,:])
+    pc_shape = pc.get_shape().as_list()
+    pc = tf.reshape(pc, [pc_shape[0], pc_shape[1], pc_shape[2], 1])
+    pc = tf.reduce_sum(pc, axis=1)
+    pc_shape = pc.get_shape().as_list()
+    pc = tf.reshape(pc, [pc_shape[0], 1, pc_shape[1], pc_shape[2]])
+    print('pc shape: ', pc.get_shape().as_list())
 
 def getNormalizedLocationWeightsFast(w):
   #Softmax
