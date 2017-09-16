@@ -244,6 +244,9 @@ def columnActivation(x, column_num, fwd_dict):
 
     #Predict the centroid.
     pc = tf.multiply(nw_reshape[:,:,None], out_locs_rs[None,:,:])
+    print('out_loc_rs shape: ', out_locs_rs.get_shape().as_list())
+    print('nw shape: ', nw_reshape.get_shape().as_list())
+    print('pc shape 1: ', pc.get_shape().as_list())
     pc_shape = pc.get_shape().as_list()
     pc = tf.reshape(pc, [pc_shape[0], pc_shape[1], pc_shape[2], 1])
     pc = tf.reduce_sum(pc, axis=1)
@@ -266,9 +269,9 @@ def columnActivation(x, column_num, fwd_dict):
     offset_wts = tf.exp(offset_wts)
     sum_offset_wts = tf.reduce_sum(offset_wts, axis=3)
     offset_wts = tf.divide(offset_wts, sum_offset_wts[:,:,:,None])
-    offset_grid = tf.reshape(offset_grid, [2,1,1,25])
+    offset_grid = tf.reshape(offset_grid, [2, 1, 1, FLAGS.grid_stride])
     print('offset_wts shape: ', offset_wts.get_shape().as_list())
-    #pc = tf.multiply(nw_reshape[:,:,None], out_locs_rs[None,:,:])
+    
     of_x = tf.multiply(tf.cast(offset_grid[0,:,:,:], tf.float32), offset_wts)
     of_y = tf.multiply(tf.cast(offset_grid[1,:,:,:], tf.float32), offset_wts)
 
@@ -283,25 +286,11 @@ def columnActivation(x, column_num, fwd_dict):
     po = tf.reshape(po, [po_shape[1], po_shape[2], po_shape[3], po_shape[0]])
     print('po shape: ', po.get_shape().as_list())
 
-    #DIMENSIONS NOT RIGHT
-    poc = tf.multiply(po,nw)
-    poc_shape = po.get_shape().as_list()
+    poc = tf.reduce_sum(tf.multiply(po,nw), axis=(1,2))
+    poc_shape = poc.get_shape().as_list()
+    poc = tf.reshape(poc, [poc_shape[0], 1, poc_shape[1], 1])
     print('poc shape: ', poc.get_shape().as_list())
-    poc_shape = tf.reshape(po, [po_shape[0], po_shape[2], po_shape[1], po_shape[3]])
-    print('poc shape after reshape: ', poc.get_shape().as_list())
 
-    '''
-    of_x = bsxfun(@times, offset_grid(1, 1, :), offset_wts);
-    of_y = bsxfun(@times, offset_grid(1, 2, :), offset_wts);    
-
-    '''
-
-
-    '''
-    num_offset_channels = size(offset_grid, 3);
-    offset_channels = 1 + (1 : num_offset_channels);
-    num_chans = length(offset_channels) + 1;
-    '''
 
 def getNormalizedLocationWeightsFast(w):
   #Softmax
