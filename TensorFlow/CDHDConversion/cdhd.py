@@ -83,7 +83,7 @@ def inference(images, meta):
   with tf.variable_scope('conv1') as scope:
     kernel = _variable_with_weight_decay('weights',
                                          shape=[3, 3, 3, 32],
-                                         stddev=1,	#check if this is right
+                                         stddev=1,  #check if this is right
                                          wd=0.0)
     conv = tf.nn.conv2d(images, kernel, [1, 2, 2, 1], padding='VALID')
     biases = _variable_on_cpu('biases', [32], tf.constant_initializer(1.0))
@@ -263,7 +263,39 @@ def columnActivation(x, column_num, fwd_dict):
     offset_max = tf.reduce_max(offset_wts, axis=3)
 
     offset_wts = tf.subtract(offset_wts, offset_max[:,:,:,None])
-    print('offset_max minus: ', offset_wts.get_shape().as_list())
+    offset_wts = tf.exp(offset_wts)
+    sum_offset_wts = tf.reduce_sum(offset_wts, axis=3)
+    offset_wts = tf.divide(offset_wts, sum_offset_wts[:,:,:,None])
+    offset_grid = tf.reshape(offset_grid, [2,1,1,25])
+    print('offset_wts shape: ', offset_wts.get_shape().as_list())
+    #pc = tf.multiply(nw_reshape[:,:,None], out_locs_rs[None,:,:])
+    of_x = tf.multiply(tf.cast(offset_grid[0,:,:,:], tf.float32), offset_wts)
+    of_y = tf.multiply(tf.cast(offset_grid[1,:,:,:], tf.float32), offset_wts)
+
+    of_x = tf.reduce_sum(of_x,axis=3)
+    of_y = tf.reduce_sum(of_y,axis=3)
+
+    print('of x shape: ', of_x.get_shape().as_list())
+    print('of y shape: ', of_x.get_shape().as_list())    
+
+    po = tf.stack([of_x, of_y])
+    po_shape = po.get_shape().as_list()
+    po = tf.reshape(po, [po_shape[1], po_shape[2], po_shape[3], po_shape[0]])
+    print('po shape: ', po.get_shape().as_list())
+
+    #DIMENSIONS NOT RIGHT
+    poc = tf.multiply(po,nw)
+    poc_shape = po.get_shape().as_list()
+    print('poc shape: ', poc.get_shape().as_list())
+    poc_shape = tf.reshape(po, [po_shape[0], po_shape[2], po_shape[1], po_shape[3]])
+    print('poc shape after reshape: ', poc.get_shape().as_list())
+
+    '''
+    of_x = bsxfun(@times, offset_grid(1, 1, :), offset_wts);
+    of_y = bsxfun(@times, offset_grid(1, 2, :), offset_wts);    
+
+    '''
+
 
     '''
     num_offset_channels = size(offset_grid, 3);
