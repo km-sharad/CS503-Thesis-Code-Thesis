@@ -148,10 +148,10 @@ def inference(images, meta):
     pre_activation = tf.nn.bias_add(conv, biases)
     conv6 = tf.nn.relu(pre_activation, name=scope.name)  
 
-    doForward(conv6, meta)
+    doForward(conv6, meta['out_locs'])
     
   
-def doForward(x, meta):
+def doForward(x, out_locs):
 
   #TODO: assert(size(x, 1) * size(x, 2) == size(layer.out_locs, 1));
 
@@ -164,34 +164,39 @@ def doForward(x, meta):
       offset_grid_list.append((grid_x[xi], grid_y[yi]))
 
   offset_grid = np.asarray(offset_grid_list) 
-  num_out_filters = offset_grid.shape[0] + 1;
+  offset_grid = tf.convert_to_tensor(offset_grid)
+  offset_grid_shape = offset_grid.get_shape().as_list()
+  offset_grid = tf.reshape(offset_grid, [1, offset_grid_shape[1],offset_grid_shape[0]])
 
-  '''
-  gt_loc = layer.org_gt_coords ./ loc_pred_scale;
-  shared_layers = layer.shared_layers;
-  shared_prefix = layer.shared_prefix;
-  '''
+  num_out_filters = offset_grid.get_shape().as_list()[2] + 1;
 
   x_shape = x.get_shape().as_list()
   n = x_shape[1] * x_shape[2]
   xa = tf.cast(tf.divide(tf.ones([x_shape[0], x_shape[1],x_shape[2],1], tf.int32), n), tf.float32)
-  #xa = tf.cast(xa, tf.float32)
 
-  x = tf.concat(3, [xa,x])    #IN NEWER VERSION CORRECT COMMAND IS: tf.concat([xa,x], 3)
+  x = tf.concat(3, [xa,x])    #IN NEWER VERSION OF TF CORRECT COMMAND IS: tf.concat([xa,x], 3)
   x_shape = x.get_shape().as_list()
 
   res_steps = np.zeros((1,FLAGS.steps))
   all_preds = np.zeros((FLAGS.steps, 2, 1, x_shape[0]))
   all_cents = np.zeros((FLAGS.steps, 2, 1, x_shape[0]))
 
+  fwd_dict = {}
+  fwd_dict['num_out_filters'] = num_out_filters
+  fwd_dict['out_locs'] = out_locs
+  fwd_dict['offset_grid'] = offset_grid
+
   for i in xrange(FLAGS.steps):
-    doForwardPass(x, i, num_out_filters, meta)
+    doForwardPass(x, i, fwd_dict)
     
-def doForwardPass(x, i, num_out_filters, meta):
-  columnActivation(x, i, num_out_filters, meta)
+def doForwardPass(x, i, fwd_dict):
+  columnActivation(x, i, fwd_dict)
 
+def columnActivation(x, column_num, fwd_dict):
 
-def columnActivation(x, column_num, num_out_filters, meta):
+  num_out_filters = fwd_dict['num_out_filters']
+  out_locs = fwd_dict['out_locs']
+
   with tf.variable_scope('col' + str(column_num) + '1') as scope:
     kernel = _variable_with_weight_decay('weights',
                                          shape=[5, 5, FLAGS.nfc + 1, FLAGS.nfc],
@@ -224,11 +229,9 @@ def columnActivation(x, column_num, num_out_filters, meta):
     conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
     biases = _variable_on_cpu('biases', [num_out_filters], tf.constant_initializer(1.0))
     a = tf.nn.bias_add(conv, biases)
-
     print('a shape: ', a.get_shape().as_list())      
 
     w = a[:, :, :, 0:1]
-
     print('w shape: ', w.get_shape().as_list())
 
     nw = getNormalizedLocationWeightsFast(w)    
@@ -236,9 +239,10 @@ def columnActivation(x, column_num, num_out_filters, meta):
     print('nw shape: ', nw_shape)
     nw_reshape = tf.reshape(nw, [nw_shape[0], nw_shape[1] * nw_shape[2]])
 
-    out_locs_rs = tf.convert_to_tensor(meta['out_locs'])
+    out_locs_rs = tf.convert_to_tensor(out_locs)
     out_locs_rs = tf.cast(out_locs_rs, tf.float32)
 
+    #Predict the centroid.
     pc = tf.multiply(nw_reshape[:,:,None], out_locs_rs[None,:,:])
     pc_shape = pc.get_shape().as_list()
     pc = tf.reshape(pc, [pc_shape[0], pc_shape[1], pc_shape[2], 1])
@@ -247,10 +251,28 @@ def columnActivation(x, column_num, num_out_filters, meta):
     pc = tf.reshape(pc, [pc_shape[0], 1, pc_shape[1], pc_shape[2]])
     print('pc shape: ', pc.get_shape().as_list())
 
+    #Predict the offset.
+    #Use the offset grid to compute the offsetd.
+
+    offset_grid = fwd_dict['offset_grid']
+    num_offset_channels = offset_grid.get_shape().as_list()[2]
+    offset_channels = tf.convert_to_tensor(np.arange(FLAGS.grid_stride) + 1)
+    num_chans = FLAGS.grid_stride + 1
+
+    offset_wts = a[:, :, :, 1: (FLAGS.grid_stride + 1)]
+    offset_max = tf.reduce_max(offset_wts, axis=3)
+
+    offset_wts = tf.subtract(offset_wts, offset_max[:,:,:,None])
+    print('offset_max minus: ', offset_wts.get_shape().as_list())
+
+    '''
+    num_offset_channels = size(offset_grid, 3);
+    offset_channels = 1 + (1 : num_offset_channels);
+    num_chans = length(offset_channels) + 1;
+    '''
+
 def getNormalizedLocationWeightsFast(w):
   #Softmax
-  #w_shape = w.get_shape().as_list()
-
   a = tf.reduce_max(w, axis=(1,2))
   ew = tf.exp(tf.subtract(w, a[:,None,None,:]))
   sew = tf.reduce_sum(ew, axis=(1,2))
