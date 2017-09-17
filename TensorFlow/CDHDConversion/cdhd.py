@@ -21,6 +21,7 @@ tf.app.flags.DEFINE_boolean('pred_factor', 50, """pred_factor""")
 tf.app.flags.DEFINE_boolean('nfc', 128, """number of filter channels""")
 tf.app.flags.DEFINE_boolean('grid_size', 50, """grid size""")
 tf.app.flags.DEFINE_boolean('grid_stride', 25, """grid stride""")
+tf.app.flags.DEFINE_boolean('sigma', 15, """RBF sigma""")
 
 def _variable_on_cpu(name, shape, initializer):
   """Helper to create a Variable stored on CPU memory.
@@ -197,6 +198,8 @@ def columnActivation(x, column_num, fwd_dict):
   num_out_filters = fwd_dict['num_out_filters']
   out_locs = fwd_dict['out_locs']
 
+  print('**** x: ', x.get_shape().as_list())
+
   with tf.variable_scope('col' + str(column_num) + '1') as scope:
     kernel = _variable_with_weight_decay('weights',
                                          shape=[5, 5, FLAGS.nfc + 1, FLAGS.nfc],
@@ -291,6 +294,12 @@ def columnActivation(x, column_num, fwd_dict):
     poc = tf.reshape(poc, [poc_shape[0], 1, poc_shape[1], 1])
     print('poc shape: ', poc.get_shape().as_list())
 
+    feat_size = a.get_shape().as_list()
+    feat_size[3] = 1
+    sigma = tf.cast(FLAGS.sigma, tf.float32)
+    offset_gauss = doOffset2GaussianForward(pc + poc, out_locs_rs, sigma, feat_size)
+    print('guss: ', offset_gauss.get_shape().as_list())
+
 
 def getNormalizedLocationWeightsFast(w):
   #Softmax
@@ -300,4 +309,32 @@ def getNormalizedLocationWeightsFast(w):
   nw = tf.divide(ew,sew[:,None,None,:])
   return nw
 
+def doOffset2GaussianForward(offset, locs, sigma, feat_size):
+  #based on: https://en.wikipedia.org/wiki/Radial_basis_function_kernel
+  feat_denom = tf.reduce_sum(tf.square(tf.subtract(offset, locs[None,:,:,None])), axis=2)
+  feat = tf.divide((feat_denom/2), tf.square(sigma))
+  feat_shape = feat.get_shape().as_list()
+  feat = tf.reshape(feat, [feat_shape[0], feat_shape[1], feat_shape[2], 1]) 
+  feat = tf.exp(-tf.reshape(feat, feat_size))
+  return feat
+
+def computePredictionLossSL1(pred, target, transition_dist):
+  residue = tf.subtract(pred, target)
+  dim_losses = tf.abs(residue)
+
+  comparator_lt = tf.less(dim_losses, tf.constant(transition_dist)) 
+  lt_tensor = dim_losses.assign(tf.where 
+                                    (comparator_lt, tf.zeros_like(dim_losses), 
+                                      tf.divide(tf.square(dim_losses),2)
+                                    )
+                                  )
+
+  comparator_gte = tf.greater_equal(dim_losses, tf.constant(transition_dist)) 
+  gte_tensor = dim_losses.assign(tf.where 
+                                    (comparator_gte, tf.zeros_like(dim_losses), 
+                                      tf.divide(tf.subtract(dim_losses, transition_dist),2)
+                                    )
+                                  )  
+
+  #stack comparator_lt and comparator_gte tensors
 
