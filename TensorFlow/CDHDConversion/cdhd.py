@@ -149,13 +149,9 @@ def inference(images, meta):
     pre_activation = tf.nn.bias_add(conv, biases)
     conv6 = tf.nn.relu(pre_activation, name=scope.name)  
 
-    doForward(conv6, meta['out_locs'])
+    doForwardPass(conv6, meta['out_locs'])
     
-  
-def doForward(x, out_locs):
-
-  #TODO: assert(size(x, 1) * size(x, 2) == size(layer.out_locs, 1));
-
+def doForwardPass(x, out_locs):
   grid_x = np.arange(-FLAGS.grid_size, FLAGS.grid_size + 1, FLAGS.grid_stride)
   grid_y = np.arange(-FLAGS.grid_size, FLAGS.grid_size + 1, FLAGS.grid_stride)
 
@@ -187,18 +183,27 @@ def doForward(x, out_locs):
   fwd_dict['out_locs'] = out_locs
   fwd_dict['offset_grid'] = offset_grid
 
-  for i in xrange(FLAGS.steps):
-    doForwardPass(x, i, fwd_dict)
-    
-def doForwardPass(x, i, fwd_dict):
-  columnActivation(x, i, fwd_dict)
+  assert(out_locs.shape[0] == x.get_shape().as_list()[1] * x.get_shape().as_list()[2]), \
+              "assertion error in forward pass"
 
-def columnActivation(x, column_num, fwd_dict):
+  aug_x = [x, None, None, None, 0]
+
+  for i in xrange(FLAGS.steps):
+    columnActivation(aug_x, i, fwd_dict)  
+    
+def columnActivation(aug_x, column_num, fwd_dict):
+  prev_pred = aug_x[1]
+  prev_loss = aug_x[4]
+  prev_offsets = aug_x[2]
+  prev_nw = aug_x[3]
+  x = aug_x[0]
+
+  chained = True
+  if(prev_pred == None):
+    chained = False
 
   num_out_filters = fwd_dict['num_out_filters']
   out_locs = fwd_dict['out_locs']
-
-  print('**** x: ', x.get_shape().as_list())
 
   with tf.variable_scope('col' + str(column_num) + '1') as scope:
     kernel = _variable_with_weight_decay('weights',
@@ -273,7 +278,6 @@ def columnActivation(x, column_num, fwd_dict):
     sum_offset_wts = tf.reduce_sum(offset_wts, axis=3)
     offset_wts = tf.divide(offset_wts, sum_offset_wts[:,:,:,None])
     offset_grid = tf.reshape(offset_grid, [2, 1, 1, FLAGS.grid_stride])
-    print('offset_wts shape: ', offset_wts.get_shape().as_list())
     
     of_x = tf.multiply(tf.cast(offset_grid[0,:,:,:], tf.float32), offset_wts)
     of_y = tf.multiply(tf.cast(offset_grid[1,:,:,:], tf.float32), offset_wts)
@@ -281,25 +285,27 @@ def columnActivation(x, column_num, fwd_dict):
     of_x = tf.reduce_sum(of_x,axis=3)
     of_y = tf.reduce_sum(of_y,axis=3)
 
-    print('of x shape: ', of_x.get_shape().as_list())
-    print('of y shape: ', of_x.get_shape().as_list())    
-
     po = tf.stack([of_x, of_y])
     po_shape = po.get_shape().as_list()
     po = tf.reshape(po, [po_shape[1], po_shape[2], po_shape[3], po_shape[0]])
-    print('po shape: ', po.get_shape().as_list())
 
     poc = tf.reduce_sum(tf.multiply(po,nw), axis=(1,2))
     poc_shape = poc.get_shape().as_list()
     poc = tf.reshape(poc, [poc_shape[0], 1, poc_shape[1], 1])
-    print('poc shape: ', poc.get_shape().as_list())
 
     feat_size = a.get_shape().as_list()
     feat_size[3] = 1
     sigma = tf.cast(FLAGS.sigma, tf.float32)
     offset_gauss = doOffset2GaussianForward(pc + poc, out_locs_rs, sigma, feat_size)
-    print('guss: ', offset_gauss.get_shape().as_list())
+    print('gauss: ', offset_gauss.get_shape().as_list())
 
+    if chained:
+      computePredictionLossSL1(prev_pred, pc, FLAGS.transition_dist)
+    else:
+      cent_residue = pc * 0;
+      cent_loss = 0;
+      offs_residue = 0;
+      offs_loss = 0;      
 
 def getNormalizedLocationWeightsFast(w):
   #Softmax
@@ -336,5 +342,7 @@ def computePredictionLossSL1(pred, target, transition_dist):
                                     )
                                   )  
 
-  #stack comparator_lt and comparator_gte tensors
+  loss = tf.concat(0, [lt_tensor, gte_tensor])
+  return loss, residue
+
 
