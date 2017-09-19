@@ -22,6 +22,8 @@ tf.app.flags.DEFINE_boolean('nfc', 128, """number of filter channels""")
 tf.app.flags.DEFINE_boolean('grid_size', 50, """grid size""")
 tf.app.flags.DEFINE_boolean('grid_stride', 25, """grid stride""")
 tf.app.flags.DEFINE_boolean('sigma', 15, """RBF sigma""")
+tf.app.flags.DEFINE_boolean('prev_pred_weight', 0.1, """prev_pred_weight""")
+
 
 def _variable_on_cpu(name, shape, initializer):
   """Helper to create a Variable stored on CPU memory.
@@ -188,6 +190,11 @@ def doForwardPass(x, out_locs):
 
   aug_x = [x, None, None, None, 0]
 
+  all_preds = tf.zeros([xa.get_shape().as_list()[0], FLAGS.steps, 2, 1])  
+  all_cents = tf.zeros([xa.get_shape().as_list()[0], FLAGS.steps, 2, 1])  
+
+  print('all_cents shape: ', all_cents.get_shape().as_list())  
+
   for i in xrange(FLAGS.steps):
     columnActivation(aug_x, i, fwd_dict)  
     
@@ -244,7 +251,7 @@ def columnActivation(aug_x, column_num, fwd_dict):
 
     nw = getNormalizedLocationWeightsFast(w)    
     nw_shape = nw.get_shape().as_list()
-    print('nw shape: ', nw_shape)
+    #print('nw shape: ', nw_shape)
     nw_reshape = tf.reshape(nw, [nw_shape[0], nw_shape[1] * nw_shape[2]])
 
     out_locs_rs = tf.convert_to_tensor(out_locs)
@@ -252,15 +259,15 @@ def columnActivation(aug_x, column_num, fwd_dict):
 
     #Predict the centroid.
     pc = tf.multiply(nw_reshape[:,:,None], out_locs_rs[None,:,:])
-    print('out_loc_rs shape: ', out_locs_rs.get_shape().as_list())
-    print('nw shape: ', nw_reshape.get_shape().as_list())
-    print('pc shape 1: ', pc.get_shape().as_list())
+    #print('out_loc_rs shape: ', out_locs_rs.get_shape().as_list())
+    #print('nw shape: ', nw_reshape.get_shape().as_list())
+    #print('pc shape 1: ', pc.get_shape().as_list())
     pc_shape = pc.get_shape().as_list()
     pc = tf.reshape(pc, [pc_shape[0], pc_shape[1], pc_shape[2], 1])
     pc = tf.reduce_sum(pc, axis=1)
     pc_shape = pc.get_shape().as_list()
     pc = tf.reshape(pc, [pc_shape[0], 1, pc_shape[1], pc_shape[2]])
-    print('pc shape: ', pc.get_shape().as_list())
+    #print('pc shape: ', pc.get_shape().as_list())
 
     #Predict the offset.
     #Use the offset grid to compute the offsetd.
@@ -288,6 +295,7 @@ def columnActivation(aug_x, column_num, fwd_dict):
     po = tf.stack([of_x, of_y])
     po_shape = po.get_shape().as_list()
     po = tf.reshape(po, [po_shape[1], po_shape[2], po_shape[3], po_shape[0]])
+    print('po shape: ', po.get_shape().as_list())
 
     poc = tf.reduce_sum(tf.multiply(po,nw), axis=(1,2))
     poc_shape = poc.get_shape().as_list()
@@ -300,12 +308,49 @@ def columnActivation(aug_x, column_num, fwd_dict):
     print('gauss: ', offset_gauss.get_shape().as_list())
 
     if chained:
-      computePredictionLossSL1(prev_pred, pc, FLAGS.transition_dist)
+      cent_loss, cent_residue = computePredictionLossSL1(prev_pred, pc, FLAGS.transition_dist)
+      offs_loss, offs_residue = computePredictionLossSL1(prev_offsets, pc, transition_dist)
+      #TODO: this part in incomplete. Fix once execution goes into this block
+      #offs_loss = 
     else:
       cent_residue = pc * 0;
       cent_loss = 0;
       offs_residue = 0;
-      offs_loss = 0;      
+      offs_loss = 0;
+
+    #indiv_preds
+    po_shape = po.get_shape().as_list()
+    po = tf.reshape(po, [po_shape[0], po_shape[1] * po_shape[2], po_shape[3], 1])
+    indiv_preds = tf.add(out_locs_rs[None, :, :, None], po)
+    print('indiv shape: ', indiv_preds.get_shape().as_list())
+
+    #indiv_nw
+    nw_shape = nw.get_shape().as_list()
+    indiv_nw = tf.reshape(nw, [nw_shape[0], nw_shape[1] * nw_shape[2], nw_shape[3], 1])
+    print('indiv nw shape: ', indiv_nw.get_shape().as_list())
+
+    loss = prev_loss + (cent_loss + offs_loss * FLAGS.offset_pred_weight) * FLAGS.prev_pred_weight;    
+
+    xx = offset_gauss;
+    out_x = [xx, pc + poc, indiv_preds, indiv_nw, loss]
+
+    res = {}
+    res['x'] = out_x
+    res['pred'] = pc;
+    res['w'] = w;
+    res['pc'] = pc
+    res['po'] = po
+    res['poc'] = poc
+    res['nw'] = nw
+    res['dwn'] = nw     #TODO: check if this is right
+    res['offset_wts'] = offset_wts
+    res['offs_loss'] = offs_loss * FLAGS.offset_pred_weight * FLAGS.prev_pred_weight
+    res['cent_residue'] = cent_residue
+    res['offs_residue'] = offs_residue
+    res['nzw_frac'] = 0 #TODO: what is this?
+    res['interim'] = a  #TODO: check if this is right
+
+    return res
 
 def getNormalizedLocationWeightsFast(w):
   #Softmax
