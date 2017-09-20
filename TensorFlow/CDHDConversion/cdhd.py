@@ -196,8 +196,20 @@ def doForwardPass(x, out_locs):
   print('all_cents shape: ', all_cents.get_shape().as_list())  
 
   for i in xrange(FLAGS.steps):
-    columnActivation(aug_x, i, fwd_dict)  
-    
+    res_step = columnActivation(aug_x, i, fwd_dict)
+    out_x = res_step['x']
+
+    x_shape = aug_x[0].get_shape().as_list()
+    x_sans_xa = tf.slice(aug_x[0], [0,0,0,1], [x_shape[0], x_shape[1], x_shape[2], -1])
+    aug_x[0] = tf.concat(3, [out_x[0],x_sans_xa])
+
+    '''
+    aug_x[1] = out_x[1]
+    aug_x[2] = out_x[2]
+    aug_x[3] = out_x[3]
+    aug_x[4] = out_x[4]
+    '''
+
 def columnActivation(aug_x, column_num, fwd_dict):
   prev_pred = aug_x[1]
   prev_loss = aug_x[4]
@@ -251,7 +263,6 @@ def columnActivation(aug_x, column_num, fwd_dict):
 
     nw = getNormalizedLocationWeightsFast(w)    
     nw_shape = nw.get_shape().as_list()
-    #print('nw shape: ', nw_shape)
     nw_reshape = tf.reshape(nw, [nw_shape[0], nw_shape[1] * nw_shape[2]])
 
     out_locs_rs = tf.convert_to_tensor(out_locs)
@@ -259,15 +270,11 @@ def columnActivation(aug_x, column_num, fwd_dict):
 
     #Predict the centroid.
     pc = tf.multiply(nw_reshape[:,:,None], out_locs_rs[None,:,:])
-    #print('out_loc_rs shape: ', out_locs_rs.get_shape().as_list())
-    #print('nw shape: ', nw_reshape.get_shape().as_list())
-    #print('pc shape 1: ', pc.get_shape().as_list())
     pc_shape = pc.get_shape().as_list()
     pc = tf.reshape(pc, [pc_shape[0], pc_shape[1], pc_shape[2], 1])
     pc = tf.reduce_sum(pc, axis=1)
     pc_shape = pc.get_shape().as_list()
     pc = tf.reshape(pc, [pc_shape[0], 1, pc_shape[1], pc_shape[2]])
-    #print('pc shape: ', pc.get_shape().as_list())
 
     #Predict the offset.
     #Use the offset grid to compute the offsetd.
@@ -362,7 +369,9 @@ def getNormalizedLocationWeightsFast(w):
 
 def doOffset2GaussianForward(offset, locs, sigma, feat_size):
   #based on: https://en.wikipedia.org/wiki/Radial_basis_function_kernel
+  print('offset shape: ', offset.get_shape().as_list())
   feat_denom = tf.reduce_sum(tf.square(tf.subtract(offset, locs[None,:,:,None])), axis=2)
+  print('feat shape: ', feat_denom.get_shape().as_list())
   feat = tf.divide((feat_denom/2), tf.square(sigma))
   feat_shape = feat.get_shape().as_list()
   feat = tf.reshape(feat, [feat_shape[0], feat_shape[1], feat_shape[2], 1]) 
