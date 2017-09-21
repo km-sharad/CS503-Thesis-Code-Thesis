@@ -203,12 +203,10 @@ def doForwardPass(x, out_locs):
     x_sans_xa = tf.slice(aug_x[0], [0,0,0,1], [x_shape[0], x_shape[1], x_shape[2], -1])
     aug_x[0] = tf.concat(3, [out_x[0],x_sans_xa])
 
-    '''
     aug_x[1] = out_x[1]
     aug_x[2] = out_x[2]
     aug_x[3] = out_x[3]
     aug_x[4] = out_x[4]
-    '''
 
 def columnActivation(aug_x, column_num, fwd_dict):
   prev_pred = aug_x[1]
@@ -316,9 +314,10 @@ def columnActivation(aug_x, column_num, fwd_dict):
 
     if chained:
       cent_loss, cent_residue = computePredictionLossSL1(prev_pred, pc, FLAGS.transition_dist)
-      offs_loss, offs_residue = computePredictionLossSL1(prev_offsets, pc, transition_dist)
-      #TODO: this part in incomplete. Fix once execution goes into this block
-      #offs_loss = 
+      offs_loss, offs_residue = computePredictionLossSL1(prev_offsets, pc, FLAGS.transition_dist)
+
+      offs_loss = tf.reduce_sum(tf.multiply(offs_loss, prev_nw), axis=1)
+      offs_loss = tf.reshape(offs_loss, [offs_loss.get_shape().as_list()[0],1,1,1])
     else:
       cent_residue = pc * 0;
       cent_loss = 0;
@@ -379,24 +378,20 @@ def doOffset2GaussianForward(offset, locs, sigma, feat_size):
   return feat
 
 def computePredictionLossSL1(pred, target, transition_dist):
+  print('pred shape: ', pred.get_shape().as_list())
+  print('target shape: ', target.get_shape().as_list())
   residue = tf.subtract(pred, target)
   dim_losses = tf.abs(residue)
 
-  comparator_lt = tf.less(dim_losses, tf.constant(transition_dist)) 
-  lt_tensor = dim_losses.assign(tf.where 
-                                    (comparator_lt, tf.zeros_like(dim_losses), 
-                                      tf.divide(tf.square(dim_losses),2)
-                                    )
-                                  )
+  comparator_lt = tf.less(dim_losses, [transition_dist]) 
 
-  comparator_gte = tf.greater_equal(dim_losses, tf.constant(transition_dist)) 
-  gte_tensor = dim_losses.assign(tf.where 
-                                    (comparator_gte, tf.zeros_like(dim_losses), 
-                                      tf.divide(tf.subtract(dim_losses, transition_dist),2)
-                                    )
-                                  )  
+  loss = tf.where(comparator_lt, 
+                        tf.divide(tf.subtract(dim_losses, transition_dist),2), 
+                        tf.divide(tf.square(dim_losses),2))
 
-  loss = tf.concat(0, [lt_tensor, gte_tensor])
+  loss = tf.reduce_sum(loss, axis=2)
+  loss = tf.reshape(loss, [loss.get_shape().as_list()[0],loss.get_shape().as_list()[1],1,1])
+  print('loss shape: ', loss.get_shape().as_list())
   return loss, residue
 
 
