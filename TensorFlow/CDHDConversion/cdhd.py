@@ -151,9 +151,9 @@ def inference(images, meta):
     pre_activation = tf.nn.bias_add(conv, biases)
     conv6 = tf.nn.relu(pre_activation, name=scope.name)  
 
-    doForwardPass(conv6, meta['out_locs'])
+    doForwardPass(conv6, meta['out_locs'], meta['org_gt_coords'])
     
-def doForwardPass(x, out_locs):
+def doForwardPass(x, out_locs, gt_loc):
   grid_x = np.arange(-FLAGS.grid_size, FLAGS.grid_size + 1, FLAGS.grid_stride)
   grid_y = np.arange(-FLAGS.grid_size, FLAGS.grid_size + 1, FLAGS.grid_stride)
 
@@ -177,8 +177,6 @@ def doForwardPass(x, out_locs):
   x_shape = x.get_shape().as_list()
 
   res_steps = np.zeros((1,FLAGS.steps))
-  all_preds = np.zeros((FLAGS.steps, 2, 1, x_shape[0]))
-  all_cents = np.zeros((FLAGS.steps, 2, 1, x_shape[0]))
 
   fwd_dict = {}
   fwd_dict['num_out_filters'] = num_out_filters
@@ -190,11 +188,10 @@ def doForwardPass(x, out_locs):
 
   aug_x = [x, None, None, None, 0]
 
-  all_preds = tf.zeros([xa.get_shape().as_list()[0], FLAGS.steps, 2, 1])  
-  all_cents = tf.zeros([xa.get_shape().as_list()[0], FLAGS.steps, 2, 1])  
+  all_preds = None
+  all_cents = None
 
-  print('all_cents shape: ', all_cents.get_shape().as_list())  
-
+  res_step = None
   for i in xrange(FLAGS.steps):
     res_step = columnActivation(aug_x, i, fwd_dict)
     out_x = res_step['x']
@@ -207,6 +204,30 @@ def doForwardPass(x, out_locs):
     aug_x[2] = out_x[2]
     aug_x[3] = out_x[3]
     aug_x[4] = out_x[4]
+
+    if(i == 0):
+      all_preds = aug_x[1]
+      all_cents = res_step['pc']
+    else:  
+      all_preds = tf.concat(1,[all_preds, tf.cast(aug_x[1], tf.float32)])
+      all_cents = tf.concat(1, [all_cents, tf.cast(res_step['pc'], tf.float32)])
+  
+  #gt_loc = meta['org_gt_coords']
+
+  gt_loc = tf.convert_to_tensor(gt_loc)
+  gt_loc = tf.cast(gt_loc, tf.float32)
+  gt_loc_shape = gt_loc.get_shape().as_list()
+  gt_loc = tf.reshape(gt_loc, [gt_loc_shape[0],1, gt_loc_shape[1],1])
+
+  #Compute the loss.
+  target_loss, target_residue = computePredictionLossSL1(res_step['x'][1], gt_loc, FLAGS.transition_dist)
+  offs_loss, offs_residue = computePredictionLossSL1(res_step['x'][2], gt_loc, FLAGS.transition_dist)
+
+  offs_loss = tf.reduce_sum(tf.multiply(offs_loss, res_step['x'][3]), axis=1)
+  offs_loss = tf.reshape(offs_loss, [offs_loss.get_shape().as_list()[0],1,1,1])
+  
+  print('loss: ', offs_loss.get_shape().as_list())
+  print('residue: ', offs_residue.get_shape().as_list())
 
 def columnActivation(aug_x, column_num, fwd_dict):
   prev_pred = aug_x[1]
@@ -254,10 +275,8 @@ def columnActivation(aug_x, column_num, fwd_dict):
     conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
     biases = _variable_on_cpu('biases', [num_out_filters], tf.constant_initializer(1.0))
     a = tf.nn.bias_add(conv, biases)
-    print('a shape: ', a.get_shape().as_list())      
 
     w = a[:, :, :, 0:1]
-    print('w shape: ', w.get_shape().as_list())
 
     nw = getNormalizedLocationWeightsFast(w)    
     nw_shape = nw.get_shape().as_list()
@@ -300,7 +319,6 @@ def columnActivation(aug_x, column_num, fwd_dict):
     po = tf.stack([of_x, of_y])
     po_shape = po.get_shape().as_list()
     po = tf.reshape(po, [po_shape[1], po_shape[2], po_shape[3], po_shape[0]])
-    print('po shape: ', po.get_shape().as_list())
 
     poc = tf.reduce_sum(tf.multiply(po,nw), axis=(1,2))
     poc_shape = poc.get_shape().as_list()
@@ -310,7 +328,6 @@ def columnActivation(aug_x, column_num, fwd_dict):
     feat_size[3] = 1
     sigma = tf.cast(FLAGS.sigma, tf.float32)
     offset_gauss = doOffset2GaussianForward(pc + poc, out_locs_rs, sigma, feat_size)
-    print('gauss: ', offset_gauss.get_shape().as_list())
 
     if chained:
       cent_loss, cent_residue = computePredictionLossSL1(prev_pred, pc, FLAGS.transition_dist)
@@ -328,12 +345,10 @@ def columnActivation(aug_x, column_num, fwd_dict):
     po_shape = po.get_shape().as_list()
     po = tf.reshape(po, [po_shape[0], po_shape[1] * po_shape[2], po_shape[3], 1])
     indiv_preds = tf.add(out_locs_rs[None, :, :, None], po)
-    print('indiv shape: ', indiv_preds.get_shape().as_list())
 
     #indiv_nw
     nw_shape = nw.get_shape().as_list()
     indiv_nw = tf.reshape(nw, [nw_shape[0], nw_shape[1] * nw_shape[2], nw_shape[3], 1])
-    print('indiv nw shape: ', indiv_nw.get_shape().as_list())
 
     loss = prev_loss + (cent_loss + offs_loss * FLAGS.offset_pred_weight) * FLAGS.prev_pred_weight;    
 
@@ -368,9 +383,7 @@ def getNormalizedLocationWeightsFast(w):
 
 def doOffset2GaussianForward(offset, locs, sigma, feat_size):
   #based on: https://en.wikipedia.org/wiki/Radial_basis_function_kernel
-  print('offset shape: ', offset.get_shape().as_list())
   feat_denom = tf.reduce_sum(tf.square(tf.subtract(offset, locs[None,:,:,None])), axis=2)
-  print('feat shape: ', feat_denom.get_shape().as_list())
   feat = tf.divide((feat_denom/2), tf.square(sigma))
   feat_shape = feat.get_shape().as_list()
   feat = tf.reshape(feat, [feat_shape[0], feat_shape[1], feat_shape[2], 1]) 
@@ -378,8 +391,6 @@ def doOffset2GaussianForward(offset, locs, sigma, feat_size):
   return feat
 
 def computePredictionLossSL1(pred, target, transition_dist):
-  print('pred shape: ', pred.get_shape().as_list())
-  print('target shape: ', target.get_shape().as_list())
   residue = tf.subtract(pred, target)
   dim_losses = tf.abs(residue)
 
@@ -391,7 +402,6 @@ def computePredictionLossSL1(pred, target, transition_dist):
 
   loss = tf.reduce_sum(loss, axis=2)
   loss = tf.reshape(loss, [loss.get_shape().as_list()[0],loss.get_shape().as_list()[1],1,1])
-  print('loss shape: ', loss.get_shape().as_list())
   return loss, residue
 
 
