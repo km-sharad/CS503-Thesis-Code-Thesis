@@ -225,9 +225,22 @@ def doForwardPass(x, out_locs, gt_loc):
 
   offs_loss = tf.reduce_sum(tf.multiply(offs_loss, res_step['x'][3]), axis=1)
   offs_loss = tf.reshape(offs_loss, [offs_loss.get_shape().as_list()[0],1,1,1])
+
+  loss = tf.add(tf.add(target_loss, res_step['x'][4]),
+                tf.multiply(offs_loss, FLAGS.offset_pred_weight))
   
-  print('loss: ', offs_loss.get_shape().as_list())
-  print('residue: ', offs_residue.get_shape().as_list())
+  pred = res_step['x'][1]
+
+  res_aux = {}
+  res_aux['pred'] = pred  
+  res_aux['all_preds'] = all_preds  
+  res_aux['all_cents'] = all_cents  
+  res_aux['res_steps'] = res_steps  
+  res_aux['target_residue'] = target_residue  
+  res_aux['offs_residue'] = offs_residue  
+  res_aux['offs_loss'] = tf.multiply(offs_loss, FLAGS.offset_pred_weight)  
+
+  return res_aux
 
 def columnActivation(aug_x, column_num, fwd_dict):
   prev_pred = aug_x[1]
