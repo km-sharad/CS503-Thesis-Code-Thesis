@@ -176,7 +176,7 @@ def doForwardPass(x, out_locs, gt_loc):
   x = tf.concat(3, [xa,x])    #IN NEWER VERSION OF TF CORRECT COMMAND IS: tf.concat([xa,x], 3)
   x_shape = x.get_shape().as_list()
 
-  res_steps = np.zeros((1,FLAGS.steps))
+  res_steps = []
 
   fwd_dict = {}
   fwd_dict['num_out_filters'] = num_out_filters
@@ -194,6 +194,7 @@ def doForwardPass(x, out_locs, gt_loc):
   res_step = None
   for i in xrange(FLAGS.steps):
     res_step = columnActivation(aug_x, i, fwd_dict)
+    res_steps.append(res_step)
     out_x = res_step['x']
 
     x_shape = aug_x[0].get_shape().as_list()
@@ -211,8 +212,6 @@ def doForwardPass(x, out_locs, gt_loc):
     else:  
       all_preds = tf.concat(1,[all_preds, tf.cast(aug_x[1], tf.float32)])
       all_cents = tf.concat(1, [all_cents, tf.cast(res_step['pc'], tf.float32)])
-  
-  #gt_loc = meta['org_gt_coords']
 
   gt_loc = tf.convert_to_tensor(gt_loc)
   gt_loc = tf.cast(gt_loc, tf.float32)
