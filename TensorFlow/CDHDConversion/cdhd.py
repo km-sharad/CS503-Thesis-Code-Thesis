@@ -11,7 +11,7 @@ import numpy as np
 FLAGS = tf.app.flags.FLAGS
 
 # Basic model parameters.
-tf.app.flags.DEFINE_integer('batch_size', 192,"""Number of images to process in a batch.""")
+tf.app.flags.DEFINE_integer('batch_size', 10,"""Number of images to process in a batch.""")
 tf.app.flags.DEFINE_boolean('use_fp16', False, """Train the model using fp16.""")
 tf.app.flags.DEFINE_boolean('steps', 3, """number of columns for steps in paper""")
 tf.app.flags.DEFINE_boolean('transition_dist', 1, """transition_dist""")
@@ -23,7 +23,6 @@ tf.app.flags.DEFINE_boolean('grid_size', 50, """grid size""")
 tf.app.flags.DEFINE_boolean('grid_stride', 25, """grid stride""")
 tf.app.flags.DEFINE_boolean('sigma', 15, """RBF sigma""")
 tf.app.flags.DEFINE_boolean('prev_pred_weight', 0.1, """prev_pred_weight""")
-
 
 def _variable_on_cpu(name, shape, initializer):
   """Helper to create a Variable stored on CPU memory.
@@ -79,9 +78,28 @@ def distorted_inputs(stats_dict):
   images, meta = cdhd_input.distorted_inputs(stats_dict, FLAGS.batch_size)
 
   images = tf.cast(images, tf.float32)
+
   return images, meta
 
-def inference(images, meta):
+#def inference(images1, meta):
+def inference():
+
+  #Placeholders
+  images = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, None, None, 3])
+  out_locs = tf.placeholder(dtype=tf.float32, shape=[None, 2])
+  org_gt_coords = tf.placeholder(dtype=tf.float32, shape=[None, 2])
+  # out_locs_width = tf.placeholder(dtype=tf.float32,)
+  # out_locs_height = tf.placeholder(dtype=tf.float32,)
+
+  #print('image size: ', images.get_shape().as_list())
+  #print('image1 size: ', images1.get_shape().as_list())
+  #print('out locs type:', meta['out_locs'].shape)
+  #print('out locs ph type:', out_locs.get_shape().as_list())
+
+  #print('Keys:')
+  #for key in meta:
+  #  print(key, ' ', type(meta[key]), 'size: ', len(meta[key]) if(key == 'margins') else meta[key].shape)
+
   # conv1
   with tf.variable_scope('conv1') as scope:
     kernel = _variable_with_weight_decay('weights',
@@ -93,9 +111,9 @@ def inference(images, meta):
     pre_activation = tf.nn.bias_add(conv, biases)
     conv1 = tf.nn.relu(pre_activation, name=scope.name)
 
-    import pdb
-    pdb.set_trace()
-    pass
+    #import pdb
+    #pdb.set_trace()
+    #pass
     
   # check if activation_summary is required
   #check if normalization is required (https://www.tensorflow.org/api_docs/python/tf/nn/local_response_normalization) 
@@ -155,9 +173,11 @@ def inference(images, meta):
     pre_activation = tf.nn.bias_add(conv, biases)
     conv6 = tf.nn.relu(pre_activation, name=scope.name)  
 
-    doForwardPass(conv6, meta['out_locs'], meta['org_gt_coords'])
+    doForwardPass(conv6, out_locs, org_gt_coords)
     
 def doForwardPass(x, out_locs, gt_loc):
+  sess = tf.Session()
+
   grid_x = np.arange(-FLAGS.grid_size, FLAGS.grid_size + 1, FLAGS.grid_stride)
   grid_y = np.arange(-FLAGS.grid_size, FLAGS.grid_size + 1, FLAGS.grid_stride)
 
@@ -173,9 +193,10 @@ def doForwardPass(x, out_locs, gt_loc):
 
   num_out_filters = offset_grid.get_shape().as_list()[2] + 1;
 
-  x_shape = x.get_shape().as_list()
-  n = x_shape[1] * x_shape[2]
-  xa = tf.cast(tf.divide(tf.ones([x_shape[0], x_shape[1],x_shape[2],1], tf.int32), n), tf.float32)
+  #TODO: feed populated xa using formula:
+  # n = x_shape[1] * x_shape[2]
+  # xa = tf.cast(tf.divide(tf.ones([x_shape[0], x_shape[1],x_shape[2],1], tf.int32), n), tf.float32)
+  xa = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, None, None, 1])
 
   x = tf.concat(3, [xa,x])    #IN NEWER VERSION OF TF CORRECT COMMAND IS: tf.concat([xa,x], 3)
   x_shape = x.get_shape().as_list()
@@ -187,8 +208,8 @@ def doForwardPass(x, out_locs, gt_loc):
   fwd_dict['out_locs'] = out_locs
   fwd_dict['offset_grid'] = offset_grid
 
-  assert(out_locs.shape[0] == x.get_shape().as_list()[1] * x.get_shape().as_list()[2]), \
-              "assertion error in forward pass"
+  #assert(out_locs.shape[0] == x.get_shape().as_list()[1] * x.get_shape().as_list()[2]), \
+  #            "assertion error in forward pass"
 
   aug_x = [x, None, None, None, 0]
 
@@ -299,18 +320,18 @@ def columnActivation(aug_x, column_num, fwd_dict):
     #getNormalizedLocationWeightsFast() returns softmax of the activation w
     nw = getNormalizedLocationWeightsFast(w)
     nw_shape = nw.get_shape().as_list()
-    nw_reshape = tf.reshape(nw, [nw_shape[0], nw_shape[1] * nw_shape[2]])
+    nw = tf.reshape(nw, [nw_shape[0], -1])
 
     out_locs_rs = tf.convert_to_tensor(out_locs)
     out_locs_rs = tf.cast(out_locs_rs, tf.float32)
 
     #Predict the centroid.
-    pc = tf.multiply(nw_reshape[:,:,None], out_locs_rs[None,:,:])
+    pc = tf.multiply(nw[:,:,None], out_locs_rs[None,:,:])
     pc_shape = pc.get_shape().as_list()
-    pc = tf.reshape(pc, [pc_shape[0], pc_shape[1], pc_shape[2], 1])
+    #pc = tf.reshape(pc, [pc_shape[0], pc_shape[1], pc_shape[2], 1])
     pc = tf.reduce_sum(pc, axis=1)
     pc_shape = pc.get_shape().as_list()
-    pc = tf.reshape(pc, [pc_shape[0], 1, pc_shape[1], pc_shape[2]])
+    #pc = tf.reshape(pc, [pc_shape[0], 1, pc_shape[1], pc_shape[2]])
 
     #Predict the offset.
     #Use the offset grid to compute the offset.

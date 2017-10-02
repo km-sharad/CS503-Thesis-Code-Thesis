@@ -117,8 +117,6 @@ def train(stats_dict):
     # Build a Graph that computes the logits predictions from the
     # inference model.
     logits = cdhd.inference(images, meta) #should be build first outside the for loop. for loop samples images ans passes tothe graph
-    import pdb
-    pdb.set_trace()
 
     '''
   # Calculate loss. 

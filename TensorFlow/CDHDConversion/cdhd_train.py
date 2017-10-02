@@ -99,7 +99,6 @@ def computeNormalizationParameters():
   return stats_dict
 
 def train(stats_dict):
-
   """
   tf.Graph().as_default():
   This method should be used if you want to create multiple graphs in the same process. 
@@ -112,13 +111,14 @@ def train(stats_dict):
     global_step = tf.Variable(0, trainable=False)
 
     # Get images and labels for CDHD.
-    images, meta = cdhd.distorted_inputs(stats_dict) # move this to the for loop
+    #images, meta = cdhd.distorted_inputs(stats_dict) # move this to the for loop
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
-    logits = cdhd.inference(images, meta) #should be build first outside the for loop. for loop samples images ans passes tothe graph
-    import pdb
-    pdb.set_trace()
+    #logits = cdhd.inference(images, meta) #should be build first outside the for loop. for loop samples images ans passes tothe graph
+    logits = cdhd.inference()
+    #import pdb
+    #pdb.set_trace()
 
     '''
   # Calculate loss. 

@@ -74,6 +74,7 @@ def distorted_inputs(stats_dict, batch_size):
   x = np.arange(FLAGS.start_offset, padded_images.shape[1], FLAGS.output_stride)
   y = np.arange(FLAGS.start_offset, padded_images.shape[2], FLAGS.output_stride)
 
+
   out_locs_list = []
   for xi in xrange(x.shape[0]):
     for yi in xrange(y.shape[0]):
@@ -95,9 +96,13 @@ def distorted_inputs(stats_dict, batch_size):
   org_gt_coords = np.divide(org_gt_coords, FLAGS.scaling_factor)
   aug_target_loc = np.divide(aug_target_loc, FLAGS.scaling_factor)
 
+  print('***** x: ', x.shape[0])
+  print('***** y: ', y.shape[0])
   meta_dict = {}
   meta_dict['margins'] = []
   meta_dict['out_locs'] = out_locs
+  meta_dict['out_locs_width'] = x.shape[0]
+  meta_dict['out_locs_height'] = y.shape[0]
   meta_dict['scale'] = final_scale
   meta_dict['gt_coords'] = gt_coords
   meta_dict['org_gt_coords'] = org_gt_coords

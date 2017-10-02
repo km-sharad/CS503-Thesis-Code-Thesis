@@ -92,10 +92,6 @@ def inference(images, meta):
     biases = _variable_on_cpu('biases', [32], tf.constant_initializer(1.0))
     pre_activation = tf.nn.bias_add(conv, biases)
     conv1 = tf.nn.relu(pre_activation, name=scope.name)
-
-    import pdb
-    pdb.set_trace()
-    pass
     
   # check if activation_summary is required
   #check if normalization is required (https://www.tensorflow.org/api_docs/python/tf/nn/local_response_normalization) 
@@ -337,7 +333,9 @@ def columnActivation(aug_x, column_num, fwd_dict):
 
     po = tf.stack([of_x, of_y])
     po_shape = po.get_shape().as_list()
+    print('*** po_shape 1', po_shape)
     po = tf.reshape(po, [po_shape[1], po_shape[2], po_shape[3], po_shape[0]])
+    print('*** po_shape 2', po.get_shape().as_list())
 
     poc = tf.reduce_sum(tf.multiply(po,nw), axis=(1,2))
     poc_shape = poc.get_shape().as_list()
