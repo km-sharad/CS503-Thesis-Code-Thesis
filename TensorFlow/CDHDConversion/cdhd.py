@@ -184,13 +184,18 @@ def doForwardPass(x, out_locs, gt_loc):
 
   num_out_filters = offset_grid.get_shape().as_list()[2] + 1;
 
+  n = tf.shape(x)[1] * tf.shape(x)[2]
+  
+  xa = tf.cast(tf.divide(tf.ones([x.get_shape().as_list()[0], \
+                tf.shape(x)[1],tf.shape(x)[2],1], tf.int32), n), tf.float32)
+
+  #If above approach does not work, try following
   #TODO: feed populated xa using formula:
   # n = x_shape[1] * x_shape[2]
   # xa = tf.cast(tf.divide(tf.ones([x_shape[0], x_shape[1],x_shape[2],1], tf.int32), n), tf.float32)
-  xa = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, None, None, 1])
+  #xa = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, None, None, 1])
 
   x = tf.concat(3, [xa,x])    #IN NEWER VERSION OF TF CORRECT COMMAND IS: tf.concat([xa,x], 3)
-  x_shape = x.get_shape().as_list()
 
   res_steps = []
 
