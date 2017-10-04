@@ -91,15 +91,6 @@ def inference():
   # out_locs_width = tf.placeholder(dtype=tf.float32,)
   # out_locs_height = tf.placeholder(dtype=tf.float32,)
 
-  #print('image size: ', images.get_shape().as_list())
-  #print('image1 size: ', images1.get_shape().as_list())
-  #print('out locs type:', meta['out_locs'].shape)
-  #print('out locs ph type:', out_locs.get_shape().as_list())
-
-  #print('Keys:')
-  #for key in meta:
-  #  print(key, ' ', type(meta[key]), 'size: ', len(meta[key]) if(key == 'margins') else meta[key].shape)
-
   # conv1
   with tf.variable_scope('conv1') as scope:
     kernel = _variable_with_weight_decay('weights',
@@ -320,22 +311,21 @@ def columnActivation(aug_x, column_num, fwd_dict):
     #getNormalizedLocationWeightsFast() returns softmax of the activation w
     nw = getNormalizedLocationWeightsFast(w)
     nw_shape = nw.get_shape().as_list()
-    nw = tf.reshape(nw, [nw_shape[0], -1])
+    nw_reshape = tf.reshape(nw, [nw_shape[0], -1])
 
     out_locs_rs = tf.convert_to_tensor(out_locs)
     out_locs_rs = tf.cast(out_locs_rs, tf.float32)
 
     #Predict the centroid.
-    pc = tf.multiply(nw[:,:,None], out_locs_rs[None,:,:])
+    pc = tf.multiply(nw_reshape[:,:,None], out_locs_rs[None,:,:])
     pc_shape = pc.get_shape().as_list()
     #pc = tf.reshape(pc, [pc_shape[0], pc_shape[1], pc_shape[2], 1])
     pc = tf.reduce_sum(pc, axis=1)
     pc_shape = pc.get_shape().as_list()
-    #pc = tf.reshape(pc, [pc_shape[0], 1, pc_shape[1], pc_shape[2]])
+    pc = tf.reshape(pc, [pc_shape[0], 1, pc_shape[1], 1])
 
     #Predict the offset.
     #Use the offset grid to compute the offset.
-
     offset_grid = fwd_dict['offset_grid']
     num_offset_channels = offset_grid.get_shape().as_list()[2]
     offset_channels = tf.convert_to_tensor(np.arange(FLAGS.grid_stride) + 1)
@@ -358,7 +348,7 @@ def columnActivation(aug_x, column_num, fwd_dict):
 
     po = tf.stack([of_x, of_y])
     po_shape = po.get_shape().as_list()
-    po = tf.reshape(po, [po_shape[1], po_shape[2], po_shape[3], po_shape[0]])
+    po = tf.reshape(po, [po_shape[1], tf.shape(po)[2], tf.shape(po)[3], po_shape[0]])
 
     poc = tf.reduce_sum(tf.multiply(po,nw), axis=(1,2))
     poc_shape = poc.get_shape().as_list()
@@ -366,8 +356,9 @@ def columnActivation(aug_x, column_num, fwd_dict):
 
     feat_size = a.get_shape().as_list()
     feat_size[3] = 1
+
     sigma = tf.cast(FLAGS.sigma, tf.float32)
-    offset_gauss = doOffset2GaussianForward(pc + poc, out_locs_rs, sigma, feat_size)
+    offset_gauss = doOffset2GaussianForward(tf.add(pc, poc), out_locs_rs, sigma, feat_size)
 
     if chained:
       cent_loss, cent_residue = computePredictionLossSL1(prev_pred, pc, FLAGS.transition_dist)
@@ -423,12 +414,14 @@ def getNormalizedLocationWeightsFast(w):
 
 def doOffset2GaussianForward(offset, locs, sigma, feat_size):
   #based on: https://en.wikipedia.org/wiki/Radial_basis_function_kernel
-  feat_denom = tf.reduce_sum(tf.square(tf.subtract(offset, locs[None,:,:,None])), axis=2)
-  feat = tf.divide((feat_denom/2), tf.square(sigma))
-  feat_shape = feat.get_shape().as_list()
-  feat = tf.reshape(feat, [feat_shape[0], feat_shape[1], feat_shape[2], 1]) 
-  feat = tf.exp(-tf.reshape(feat, feat_size))
-  return feat
+  # feat_denom = tf.reduce_sum(tf.square(tf.subtract(offset, locs[None,:,:,None])), axis=2)
+  # feat = tf.divide((feat_denom/2), tf.square(sigma))
+  # feat_shape = feat.get_shape().as_list()
+  # feat = tf.reshape(feat, [feat_shape[0], feat_shape[1], feat_shape[2], 1]) 
+  # feat = tf.exp(-tf.reshape(feat, feat_size))
+  # return feat
+
+  return offset
 
 def computePredictionLossSL1(pred, target, transition_dist):
   residue = tf.subtract(pred, target)
