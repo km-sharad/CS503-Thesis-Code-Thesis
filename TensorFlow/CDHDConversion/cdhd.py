@@ -220,7 +220,11 @@ def doForwardPass(x, out_locs, gt_loc):
 
     #Output of step 1 goes as input to step 2 and output of step 2 goes as input to step 3
     x_shape = aug_x[0].get_shape().as_list()
-    x_sans_xa = tf.slice(aug_x[0], [0,0,0,1], [x_shape[0], x_shape[1], x_shape[2], -1])
+    print('*** x shape 1: ', x_shape)
+    #TODO: check size of x_sans_xa after data is fed
+    x_sans_xa = tf.slice(aug_x[0], [0,0,0,1], [x_shape[0], tf.shape(aug_x[0])[1], \
+                    tf.shape(aug_x[0])[2], -1])
+    print('*** x shape 2: ', x_sans_xa.get_shape().as_list())
     aug_x[0] = tf.concat(3, [out_x[0],x_sans_xa])
 
     aug_x[1] = out_x[1]
@@ -324,7 +328,6 @@ def columnActivation(aug_x, column_num, fwd_dict):
     #Predict the centroid.
     pc = tf.multiply(nw_reshape[:,:,None], out_locs_rs[None,:,:])
     pc_shape = pc.get_shape().as_list()
-    #pc = tf.reshape(pc, [pc_shape[0], pc_shape[1], pc_shape[2], 1])
     pc = tf.reduce_sum(pc, axis=1)
     pc_shape = pc.get_shape().as_list()
     pc = tf.reshape(pc, [pc_shape[0], 1, pc_shape[1], 1])
@@ -366,6 +369,9 @@ def columnActivation(aug_x, column_num, fwd_dict):
     offset_gauss = doOffset2GaussianForward(tf.add(pc, poc), out_locs_rs, sigma, feat_size)
 
     if chained:
+      print('prev_pred shape: ', prev_pred.get_shape().as_list())
+      print('pc shape: ', pc.get_shape().as_list())
+      print('prev_offset shape: ', prev_offsets.get_shape().as_list())
       cent_loss, cent_residue = computePredictionLossSL1(prev_pred, pc, FLAGS.transition_dist)
       offs_loss, offs_residue = computePredictionLossSL1(prev_offsets, pc, FLAGS.transition_dist)
 
@@ -379,12 +385,12 @@ def columnActivation(aug_x, column_num, fwd_dict):
 
     #indiv_preds
     po_shape = po.get_shape().as_list()
-    po = tf.reshape(po, [po_shape[0], po_shape[1] * po_shape[2], po_shape[3], 1])
+    po = tf.reshape(po, [po_shape[0], tf.shape(po)[1] * tf.shape(po)[2], po_shape[3], 1])
     indiv_preds = tf.add(out_locs_rs[None, :, :, None], po)
 
     #indiv_nw
     nw_shape = nw.get_shape().as_list()
-    indiv_nw = tf.reshape(nw, [nw_shape[0], nw_shape[1] * nw_shape[2], nw_shape[3], 1])
+    indiv_nw = tf.reshape(nw, [nw_shape[0], tf.shape(nw)[1] * tf.shape(nw)[2], nw_shape[3], 1])
 
     loss = prev_loss + (cent_loss + offs_loss * FLAGS.offset_pred_weight) * FLAGS.prev_pred_weight;    
 

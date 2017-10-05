@@ -199,7 +199,9 @@ def doForwardPass(x, out_locs, gt_loc):
 
     #Output of step 1 goes as input to step 2 and output of step 2 goes as input to step 3
     x_shape = aug_x[0].get_shape().as_list()
+    print('*** x shape 1: ', x_shape)
     x_sans_xa = tf.slice(aug_x[0], [0,0,0,1], [x_shape[0], x_shape[1], x_shape[2], -1])
+    print('*** x shape 2: ', x_sans_xa.get_shape().as_list())
     aug_x[0] = tf.concat(3, [out_x[0],x_sans_xa])
 
     aug_x[1] = out_x[1]
@@ -333,10 +335,7 @@ def columnActivation(aug_x, column_num, fwd_dict):
 
     po = tf.stack([of_x, of_y])
     po_shape = po.get_shape().as_list()
-    print('+++ nw shape: ', nw.get_shape().as_list())
-    print('*** po_shape 1', po_shape)
     po = tf.reshape(po, [po_shape[1], po_shape[2], po_shape[3], po_shape[0]])
-    print('*** po_shape 2', po.get_shape().as_list())
 
     poc = tf.reduce_sum(tf.multiply(po,nw), axis=(1,2))
     poc_shape = poc.get_shape().as_list()
@@ -345,8 +344,7 @@ def columnActivation(aug_x, column_num, fwd_dict):
     feat_size = a.get_shape().as_list()
     feat_size[3] = 1
     sigma = tf.cast(FLAGS.sigma, tf.float32)
-    print('pc shape: ', pc.get_shape().as_list(), 'poc shape: ', poc.get_shape().as_list(), \
-              'out locs rs shape: ', out_locs_rs.get_shape().as_list(), 'feat_size: ', feat_size)
+
     offset_gauss = doOffset2GaussianForward(pc + poc, out_locs_rs, sigma, feat_size)
 
     if chained:
@@ -406,11 +404,8 @@ def doOffset2GaussianForward(offset, locs, sigma, feat_size):
   feat_denom = tf.reduce_sum(tf.square(tf.subtract(offset, locs[None,:,:,None])), axis=2)
   feat = tf.divide((feat_denom/2), tf.square(sigma))
   feat_shape = feat.get_shape().as_list()
-  print('feat shape: ', feat_shape)
   feat = tf.reshape(feat, [feat_shape[0], feat_shape[1], feat_shape[2], 1]) 
-  print('feat shape after: ', feat.get_shape().as_list())
   feat = tf.exp(-tf.reshape(feat, feat_size))
-  print('feat shape after 2: ', feat.get_shape().as_list())
   return feat
 
 def computePredictionLossSL1(pred, target, transition_dist):
