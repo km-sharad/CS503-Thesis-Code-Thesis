@@ -240,7 +240,6 @@ def doForwardPass(x, out_locs, gt_loc):
   gt_loc = tf.convert_to_tensor(gt_loc)
   gt_loc = tf.cast(gt_loc, tf.float32)
   gt_loc_shape = gt_loc.get_shape().as_list()
-  print('gt loc shape: ', gt_loc_shape)
   gt_loc = tf.reshape(gt_loc, [tf.shape(gt_loc)[0],1, tf.shape(gt_loc)[1],1])
 
   #Compute the loss.
