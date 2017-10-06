@@ -199,9 +199,7 @@ def doForwardPass(x, out_locs, gt_loc):
 
     #Output of step 1 goes as input to step 2 and output of step 2 goes as input to step 3
     x_shape = aug_x[0].get_shape().as_list()
-    print('*** x shape 1: ', x_shape)
     x_sans_xa = tf.slice(aug_x[0], [0,0,0,1], [x_shape[0], x_shape[1], x_shape[2], -1])
-    print('*** x shape 2: ', x_sans_xa.get_shape().as_list())
     aug_x[0] = tf.concat(3, [out_x[0],x_sans_xa])
 
     aug_x[1] = out_x[1]
@@ -219,7 +217,9 @@ def doForwardPass(x, out_locs, gt_loc):
   gt_loc = tf.convert_to_tensor(gt_loc)
   gt_loc = tf.cast(gt_loc, tf.float32)
   gt_loc_shape = gt_loc.get_shape().as_list()
+  print('gt loc shape before: ', gt_loc_shape)
   gt_loc = tf.reshape(gt_loc, [gt_loc_shape[0],1, gt_loc_shape[1],1])
+  print('gt loc shape after: ', gt_loc.get_shape().as_list())
 
   #Compute the loss.
   target_loss, target_residue = computePredictionLossSL1(res_step['x'][1], gt_loc, FLAGS.transition_dist)
@@ -418,7 +418,9 @@ def computePredictionLossSL1(pred, target, transition_dist):
                         tf.divide(tf.subtract(dim_losses, transition_dist),2), 
                         tf.divide(tf.square(dim_losses),2))
 
+  print('loss before: ', loss.get_shape().as_list())
   loss = tf.reduce_sum(loss, axis=2)
+  print('loss after: ', loss.get_shape().as_list())
   loss = tf.reshape(loss, [loss.get_shape().as_list()[0],loss.get_shape().as_list()[1],1,1])
   return loss, residue
 
