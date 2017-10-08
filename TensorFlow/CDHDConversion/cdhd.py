@@ -11,7 +11,7 @@ import numpy as np
 FLAGS = tf.app.flags.FLAGS
 
 # Basic model parameters.
-tf.app.flags.DEFINE_integer('batch_size', 10,"""Number of images to process in a batch.""")
+# tf.app.flags.DEFINE_integer('batch_size', 10,"""Number of images to process in a batch.""")
 tf.app.flags.DEFINE_boolean('use_fp16', False, """Train the model using fp16.""")
 tf.app.flags.DEFINE_boolean('steps', 3, """number of columns for steps in paper""")
 tf.app.flags.DEFINE_boolean('transition_dist', 1, """transition_dist""")
@@ -38,6 +38,7 @@ def _variable_on_cpu(name, shape, initializer):
   with tf.device('/cpu:0'):
     dtype = tf.float16 if FLAGS.use_fp16 else tf.float32
     var = tf.get_variable(name, shape, initializer=initializer, dtype=dtype)
+    print('*** var: ', var)
   return var
 
 def _variable_with_weight_decay(name, shape, stddev, wd):
@@ -82,12 +83,11 @@ def distorted_inputs(stats_dict):
   return images, meta
 
 #def inference(images1, meta):
-def inference():
-
+def inference(images,out_locs,org_gt_coords):
   #Placeholders
-  images = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, None, None, 3])
-  out_locs = tf.placeholder(dtype=tf.float32, shape=[None, 2])
-  org_gt_coords = tf.placeholder(dtype=tf.float32, shape=[None, 2])
+  # images = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, None, None, 3])
+  # out_locs = tf.placeholder(dtype=tf.float32, shape=[None, 2])
+  # org_gt_coords = tf.placeholder(dtype=tf.float32, shape=[None, 2])
   # out_locs_width = tf.placeholder(dtype=tf.float32,)
   # out_locs_height = tf.placeholder(dtype=tf.float32,)
 
@@ -101,10 +101,6 @@ def inference():
     biases = _variable_on_cpu('biases', [32], tf.constant_initializer(1.0))
     pre_activation = tf.nn.bias_add(conv, biases)
     conv1 = tf.nn.relu(pre_activation, name=scope.name)
-
-    #import pdb
-    #pdb.set_trace()
-    #pass
     
   # check if activation_summary is required
   #check if normalization is required (https://www.tensorflow.org/api_docs/python/tf/nn/local_response_normalization) 
@@ -164,7 +160,9 @@ def inference():
     pre_activation = tf.nn.bias_add(conv, biases)
     conv6 = tf.nn.relu(pre_activation, name=scope.name)  
 
-    doForwardPass(conv6, out_locs, org_gt_coords)
+    res_aux = doForwardPass(conv6, out_locs, org_gt_coords)
+
+    return res_aux['pred']
     
 def doForwardPass(x, out_locs, gt_loc):
   sess = tf.Session()

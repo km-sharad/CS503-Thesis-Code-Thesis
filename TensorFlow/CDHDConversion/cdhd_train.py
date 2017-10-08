@@ -5,6 +5,7 @@ from PIL import Image
 from math import sqrt
 import numpy as np
 import time
+import cdhd_input
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -17,6 +18,7 @@ tf.app.flags.DEFINE_integer('total_visible_training_images', 1920,
                               """Number of training images where car door handle is visible.""")
 tf.app.flags.DEFINE_integer('max_steps', 26000,"""Number of batches to run.""")
 tf.app.flags.DEFINE_integer('stats_sample_size', 200,"""Number of images to calculate mean and sd.""")
+tf.app.flags.DEFINE_integer('batch_size', 10,"""Number of images to process in a batch.""")
 
 def computeNormalizationParameters():
 
@@ -109,6 +111,9 @@ def train(stats_dict):
 
   with tf.Graph().as_default():
     global_step = tf.Variable(0, trainable=False)
+    images = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, None, None, 3])
+    out_locs = tf.placeholder(dtype=tf.float32, shape=[None, 2])
+    org_gt_coords = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, 2])    
 
     # Get images and labels for CDHD.
     #images, meta = cdhd.distorted_inputs(stats_dict) # move this to the for loop
@@ -116,7 +121,7 @@ def train(stats_dict):
     # Build a Graph that computes the logits predictions from the
     # inference model.
     #logits = cdhd.inference(images, meta) #should be build first outside the for loop. for loop samples images ans passes tothe graph
-    logits = cdhd.inference()
+    logits = cdhd.inference(images,out_locs,org_gt_coords)
     #import pdb
     #pdb.set_trace()
 
@@ -134,16 +139,24 @@ def train(stats_dict):
     CDHDGlobals.all_training_data = []
     '''
 
-    with tf.Session() as sess:
-      sess.run(logits) #feed_dict, key = node, value = numpy array
-      print('end')
+    # with tf.Session() as sess:
+    #   sess.run(logits) #feed_dict, key = node, value = numpy array
+    #   print('end')
 
-    '''
-    for step in xrange(FLAGS.max_steps):
+    init = tf.global_variables_initializer()
+    sess = tf.Session()
+
+    # for step in xrange(FLAGS.max_steps):
+    for step in xrange(2):
       start_time = time.time()
-      _, loss_value = sess.run([train_op, loss])
+      distorted_images, meta = cdhd_input.distorted_inputs(stats_dict, FLAGS.batch_size)
+      print('images sp: ',distorted_images.shape)
+      print('out locs shape: ', meta['out_locs'].shape)
+      print('org_gt_coords: ', meta['org_gt_coords'].shape)
+      sess.run(logits, {images: distorted_images, out_locs: meta['out_locs'], org_gt_coords: meta['org_gt_coords']})
       duration = time.time() - start_time
-    '''
+      print('duration: ', duration)
+    
 
 def main(argv=None):  # pylint: disable=unused-argument
   stats_dict = computeNormalizationParameters()

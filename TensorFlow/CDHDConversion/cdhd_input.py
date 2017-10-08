@@ -111,9 +111,10 @@ def distorted_inputs(stats_dict, batch_size):
   #meta_dict['im_org_scaled'] = ?;
   #meta_dict['torso_height'] = ?;
 
-  images_tensor = tf.convert_to_tensor(padded_images)
+  # images_tensor = tf.convert_to_tensor(padded_images)
 
-  return images_tensor, meta_dict
+  # return images_tensor, meta_dict
+  return padded_images, meta_dict
 
 def getImage(meta_rec, stats_dict):
     im_meta_dict = {}
