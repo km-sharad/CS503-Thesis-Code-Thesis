@@ -24,6 +24,9 @@ tf.app.flags.DEFINE_boolean('grid_stride', 25, """grid stride""")
 tf.app.flags.DEFINE_boolean('sigma', 15, """RBF sigma""")
 tf.app.flags.DEFINE_boolean('prev_pred_weight', 0.1, """prev_pred_weight""")
 
+def initialize_variables():
+  tf.global_variables_initializer()
+
 def _variable_on_cpu(name, shape, initializer):
   """Helper to create a Variable stored on CPU memory.
 
@@ -38,7 +41,6 @@ def _variable_on_cpu(name, shape, initializer):
   with tf.device('/cpu:0'):
     dtype = tf.float16 if FLAGS.use_fp16 else tf.float32
     var = tf.get_variable(name, shape, initializer=initializer, dtype=dtype)
-    print('*** var: ', var)
   return var
 
 def _variable_with_weight_decay(name, shape, stddev, wd):
@@ -221,7 +223,7 @@ def doForwardPass(x, out_locs, gt_loc):
     #TODO: check size of x_sans_xa after data is fed
     x_sans_xa = tf.slice(aug_x[0], [0,0,0,1], [x_shape[0], tf.shape(aug_x[0])[1], \
                     tf.shape(aug_x[0])[2], -1])
-    aug_x[0] = tf.concat(3, [out_x[0],x_sans_xa])
+    aug_x[0] = tf.concat(3, [out_x[0],x_sans_xa], name='concat_x_and_a_sans_xa')
 
     aug_x[1] = out_x[1]
     aug_x[2] = out_x[2]
@@ -388,6 +390,12 @@ def columnActivation(aug_x, column_num, fwd_dict):
     loss = prev_loss + (cent_loss + offs_loss * FLAGS.offset_pred_weight) * FLAGS.prev_pred_weight;    
 
     xx = offset_gauss;
+    xx_shape = xx.get_shape().as_list()
+    ses = tf.get_default_session()
+    if (ses is not None): 
+      xprt = tf.Print(xx,[xx])
+      ses.run(xprt)
+
     out_x = [xx, pc + poc, indiv_preds, indiv_nw, loss]
 
     res = {}

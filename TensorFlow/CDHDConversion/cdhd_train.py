@@ -6,6 +6,7 @@ from math import sqrt
 import numpy as np
 import time
 import cdhd_input
+from tensorflow.python import debug as tf_debug
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -145,6 +146,9 @@ def train(stats_dict):
 
     init = tf.global_variables_initializer()
     sess = tf.Session()
+    # sess = tf_debug.LocalCLIDebugWrapperSession(sess)
+    # sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
+    sess.run(init)
 
     # for step in xrange(FLAGS.max_steps):
     for step in xrange(2):
