@@ -200,6 +200,12 @@ def doForwardPass(x, out_locs, gt_loc):
     #Output of step 1 goes as input to step 2 and output of step 2 goes as input to step 3
     x_shape = aug_x[0].get_shape().as_list()
     x_sans_xa = tf.slice(aug_x[0], [0,0,0,1], [x_shape[0], x_shape[1], x_shape[2], -1])
+
+    print('out_x[0] before: ', out_x[0].get_shape().as_list())
+    out_x[0] = tf.reshape(out_x[0], [tf.shape(x_sans_xa)[0], tf.shape(x_sans_xa)[1], \
+                    tf.shape(x_sans_xa)[2], 1])
+    print('out_x[0] after: ', out_x[0].get_shape().as_list())
+
     aug_x[0] = tf.concat(3, [out_x[0],x_sans_xa])
 
     aug_x[1] = out_x[1]
@@ -217,9 +223,7 @@ def doForwardPass(x, out_locs, gt_loc):
   gt_loc = tf.convert_to_tensor(gt_loc)
   gt_loc = tf.cast(gt_loc, tf.float32)
   gt_loc_shape = gt_loc.get_shape().as_list()
-  print('gt loc shape before: ', gt_loc_shape)
   gt_loc = tf.reshape(gt_loc, [gt_loc_shape[0],1, gt_loc_shape[1],1])
-  print('gt loc shape after: ', gt_loc.get_shape().as_list())
 
   #Compute the loss.
   target_loss, target_residue = computePredictionLossSL1(res_step['x'][1], gt_loc, FLAGS.transition_dist)
@@ -342,8 +346,14 @@ def columnActivation(aug_x, column_num, fwd_dict):
     poc = tf.reshape(poc, [poc_shape[0], 1, poc_shape[1], 1])
 
     feat_size = a.get_shape().as_list()
-    feat_size[3] = 1
+    #print('++ feat size', feat_size)
+    feat_size = tf.slice(a, [0,0,0,0], [feat_size[0], feat_size[1], feat_size[2], 1]).get_shape().as_list()
+    # a_slice = tf.slice(a, [0,0,0,0], [feat_size[0], feat_size[1], feat_size[2], 1])
+    print('++ feat size 2', feat_size)
+    # feat_size[3] = 1
     sigma = tf.cast(FLAGS.sigma, tf.float32)
+
+        # x_sans_xa = tf.slice(aug_x[0], [0,0,0,1], [x_shape[0], x_shape[1], x_shape[2], -1])
 
     offset_gauss = doOffset2GaussianForward(pc + poc, out_locs_rs, sigma, feat_size)
 
@@ -401,11 +411,14 @@ def getNormalizedLocationWeightsFast(w):
 
 def doOffset2GaussianForward(offset, locs, sigma, feat_size):
   #based on: https://en.wikipedia.org/wiki/Radial_basis_function_kernel
+  print('offset shape: ', offset.get_shape().as_list())
+
   feat_denom = tf.reduce_sum(tf.square(tf.subtract(offset, locs[None,:,:,None])), axis=2)
   feat = tf.divide((feat_denom/2), tf.square(sigma))
   feat_shape = feat.get_shape().as_list()
   feat = tf.reshape(feat, [feat_shape[0], feat_shape[1], feat_shape[2], 1]) 
-  feat = tf.exp(-tf.reshape(feat, feat_size))
+  feat = tf.exp(-feat)
+  # feat = tf.exp(-tf.reshape(feat, feat_size))
   return feat
 
 def computePredictionLossSL1(pred, target, transition_dist):
@@ -418,9 +431,7 @@ def computePredictionLossSL1(pred, target, transition_dist):
                         tf.divide(tf.subtract(dim_losses, transition_dist),2), 
                         tf.divide(tf.square(dim_losses),2))
 
-  print('loss before: ', loss.get_shape().as_list())
   loss = tf.reduce_sum(loss, axis=2)
-  print('loss after: ', loss.get_shape().as_list())
   loss = tf.reshape(loss, [loss.get_shape().as_list()[0],loss.get_shape().as_list()[1],1,1])
   return loss, residue
 
