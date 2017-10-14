@@ -96,8 +96,6 @@ def distorted_inputs(stats_dict, batch_size):
   org_gt_coords = np.divide(org_gt_coords, FLAGS.scaling_factor)
   aug_target_loc = np.divide(aug_target_loc, FLAGS.scaling_factor)
 
-  print('***** x: ', x.shape[0])
-  print('***** y: ', y.shape[0])
   meta_dict = {}
   meta_dict['margins'] = []
   meta_dict['out_locs'] = out_locs

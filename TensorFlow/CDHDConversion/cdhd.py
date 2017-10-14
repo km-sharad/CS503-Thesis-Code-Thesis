@@ -69,30 +69,8 @@ def _variable_with_weight_decay(name, shape, stddev, wd):
     tf.add_to_collection('losses', weight_decay)
   return var
 
-#def distorted_inputs(stats_dict,batch_size=FLAGS.batch_size):
-def distorted_inputs(stats_dict):
-  """Construct distorted input for CDHD training using the Reader ops.
-
-  Returns:
-    images: Images. 4D tensor of [batch_size, IMAGE_SIZE, IMAGE_SIZE, 3] size.
-    labels: Labels. 1D tensor of [batch_size] size.    
-  """
-
-  images, meta = cdhd_input.distorted_inputs(stats_dict, FLAGS.batch_size)
-
-  images = tf.cast(images, tf.float32)
-
-  return images, meta
-
 #def inference(images1, meta):
 def inference(images,out_locs,org_gt_coords):
-  #Placeholders
-  # images = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, None, None, 3])
-  # out_locs = tf.placeholder(dtype=tf.float32, shape=[None, 2])
-  # org_gt_coords = tf.placeholder(dtype=tf.float32, shape=[None, 2])
-  # out_locs_width = tf.placeholder(dtype=tf.float32,)
-  # out_locs_height = tf.placeholder(dtype=tf.float32,)
-
   # conv1
   with tf.variable_scope('conv1') as scope:
     kernel = _variable_with_weight_decay('weights',
@@ -104,8 +82,8 @@ def inference(images,out_locs,org_gt_coords):
     pre_activation = tf.nn.bias_add(conv, biases)
     conv1 = tf.nn.relu(pre_activation, name=scope.name)
     
-  # check if activation_summary is required
-  #check if normalization is required (https://www.tensorflow.org/api_docs/python/tf/nn/local_response_normalization) 
+  #TODO: check if activation_summary is required
+  #TODO: check if normalization is required (https://www.tensorflow.org/api_docs/python/tf/nn/local_response_normalization) 
 
   # conv2
   with tf.variable_scope('conv2') as scope:
@@ -163,12 +141,9 @@ def inference(images,out_locs,org_gt_coords):
     conv6 = tf.nn.relu(pre_activation, name=scope.name)  
 
     res_aux = doForwardPass(conv6, out_locs, org_gt_coords)
-
     return res_aux['pred']
     
 def doForwardPass(x, out_locs, gt_loc):
-  sess = tf.Session()
-
   grid_x = np.arange(-FLAGS.grid_size, FLAGS.grid_size + 1, FLAGS.grid_stride)
   grid_y = np.arange(-FLAGS.grid_size, FLAGS.grid_size + 1, FLAGS.grid_stride)
 
@@ -228,8 +203,8 @@ def doForwardPass(x, out_locs, gt_loc):
                     tf.shape(x_sans_xa)[2], 1])
     aug_x[0] = tf.concat(3, [out_x[0],x_sans_xa], name='concat_x_and_a_sans_xa')
 
-    print('out_x[0]: ', out_x[0].get_shape().as_list())
-    print('x_sans_xa: ', x_sans_xa.get_shape().as_list())    
+    # print('out_x[0]: ', out_x[0].get_shape().as_list())
+    # print('x_sans_xa: ', x_sans_xa.get_shape().as_list())    
 
     aug_x[1] = out_x[1]
     aug_x[2] = out_x[2]
@@ -262,10 +237,13 @@ def doForwardPass(x, out_locs, gt_loc):
   pred = res_step['x'][1]
 
   res_aux = {}
+  # res = res_ip1;
+  res_aux['loss'] = loss
   res_aux['pred'] = pred  
   res_aux['all_preds'] = all_preds  
   res_aux['all_cents'] = all_cents  
   res_aux['res_steps'] = res_steps  
+  # res.aux.nzw_frac = 0;
   res_aux['target_residue'] = target_residue  
   res_aux['offs_residue'] = offs_residue  
   res_aux['offs_loss'] = tf.multiply(offs_loss, FLAGS.offset_pred_weight)  
@@ -295,8 +273,9 @@ def columnActivation(aug_x, column_num, fwd_dict):
     biases = _variable_on_cpu('biases', [FLAGS.nfc], tf.constant_initializer(1.0))
     a = tf.nn.bias_add(conv, biases)
 
-    a_with_negatives_set_to_zero = tf.nn.relu(a)
-    a = tf.multiply(a, a_with_negatives_set_to_zero)
+    # TODO: multiplication here results in NaN error. Find out why?
+    # a_with_negatives_set_to_zero = tf.nn.relu(a)
+    # a = tf.multiply(a, a_with_negatives_set_to_zero, name='a_with_negatives_set_to_zero_1')
 
   with tf.variable_scope('col' + str(column_num) + '2') as scope:
     kernel = _variable_with_weight_decay('weights',
@@ -307,8 +286,9 @@ def columnActivation(aug_x, column_num, fwd_dict):
     biases = _variable_on_cpu('biases', [FLAGS.nfc], tf.constant_initializer(1.0))
     a = tf.nn.bias_add(conv, biases)
 
-    a_with_negatives_set_to_zero = tf.nn.relu(a)
-    a = tf.multiply(a, a_with_negatives_set_to_zero)      
+    # TODO: multiplication here results in NaN error. Find out why?
+    # a_with_negatives_set_to_zero = tf.nn.relu(a)
+    # a = tf.multiply(a, a_with_negatives_set_to_zero, name='mul_a_with_negatives_set_to_zero_2')      
 
   with tf.variable_scope('col' + str(column_num) + '3') as scope:
     kernel = _variable_with_weight_decay('weights',

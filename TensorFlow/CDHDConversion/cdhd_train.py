@@ -121,8 +121,8 @@ def train(stats_dict):
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
-    #logits = cdhd.inference(images, meta) #should be build first outside the for loop. for loop samples images ans passes tothe graph
     logits = cdhd.inference(images,out_locs,org_gt_coords)
+
     #import pdb
     #pdb.set_trace()
 
@@ -146,19 +146,25 @@ def train(stats_dict):
 
     init = tf.global_variables_initializer()
     sess = tf.Session()
+    sess.run(init)
+
     # sess = tf_debug.LocalCLIDebugWrapperSession(sess)
     # sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
-    sess.run(init)
 
     # for step in xrange(FLAGS.max_steps):
     for step in xrange(2):
       start_time = time.time()
       distorted_images, meta = cdhd_input.distorted_inputs(stats_dict, FLAGS.batch_size)
-      print('images sp: ',distorted_images.shape)
-      print('out locs shape: ', meta['out_locs'].shape)
-      print('org_gt_coords: ', meta['org_gt_coords'].shape)
-      sess.run(logits, {images: distorted_images, out_locs: meta['out_locs'], org_gt_coords: meta['org_gt_coords']})
+      print('images shape: ',distorted_images.shape)
+      # sess.run(logits, {images: distorted_images, out_locs: meta['out_locs'], org_gt_coords: meta['org_gt_coords']})
+      # print('logits: ', sess.run(logits, {images: distorted_images, out_locs: meta['out_locs'], \
+      #         org_gt_coords: meta['org_gt_coords']}))
+      sess.run(logits, {images: distorted_images, out_locs: meta['out_locs'], \
+              org_gt_coords: meta['org_gt_coords']})
+
       duration = time.time() - start_time
+      # print('*** logits shape: ', logits.get_shape().as_list())
+      # print('+++ logits shape: ', sess.run(logits))
       print('duration: ', duration)
     
 
