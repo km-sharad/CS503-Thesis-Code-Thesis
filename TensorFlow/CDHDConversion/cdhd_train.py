@@ -146,6 +146,7 @@ def train(stats_dict):
 
     init = tf.global_variables_initializer()
     sess = tf.Session()
+    writer = tf.summary.FileWriter('./graphs', sess.graph)
     sess.run(init)
 
     # sess = tf_debug.LocalCLIDebugWrapperSession(sess)
@@ -155,18 +156,17 @@ def train(stats_dict):
     for step in xrange(2):
       start_time = time.time()
       distorted_images, meta = cdhd_input.distorted_inputs(stats_dict, FLAGS.batch_size)
+
       print('images shape: ',distorted_images.shape)
-      # sess.run(logits, {images: distorted_images, out_locs: meta['out_locs'], org_gt_coords: meta['org_gt_coords']})
-      # print('logits: ', sess.run(logits, {images: distorted_images, out_locs: meta['out_locs'], \
-      #         org_gt_coords: meta['org_gt_coords']}))
+
       sess.run(logits, {images: distorted_images, out_locs: meta['out_locs'], \
               org_gt_coords: meta['org_gt_coords']})
 
       duration = time.time() - start_time
-      # print('*** logits shape: ', logits.get_shape().as_list())
-      # print('+++ logits shape: ', sess.run(logits))
+
       print('duration: ', duration)
     
+    writer.close()
 
 def main(argv=None):  # pylint: disable=unused-argument
   stats_dict = computeNormalizationParameters()

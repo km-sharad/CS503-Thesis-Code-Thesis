@@ -132,9 +132,12 @@ def train(stats_dict):
     CDHDGlobals.all_training_data = []
     '''
 
-    with tf.Session() as sess:
-      sess.run(logits) #feed_dict, key = node, value = numpy array
-      print('end')
+    init = tf.global_variables_initializer()
+    sess = tf.Session()
+    sess.run(init)
+
+    # with tf.Session() as sess:
+    sess.run(logits) #feed_dict, key = node, value = numpy array
 
     '''
     for step in xrange(FLAGS.max_steps):

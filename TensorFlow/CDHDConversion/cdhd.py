@@ -141,7 +141,7 @@ def inference(images,out_locs,org_gt_coords):
     conv6 = tf.nn.relu(pre_activation, name=scope.name)  
 
     res_aux = doForwardPass(conv6, out_locs, org_gt_coords)
-    return res_aux['pred']
+    return res_aux['all_preds']
     
 def doForwardPass(x, out_locs, gt_loc):
   grid_x = np.arange(-FLAGS.grid_size, FLAGS.grid_size + 1, FLAGS.grid_stride)
@@ -157,7 +157,8 @@ def doForwardPass(x, out_locs, gt_loc):
   offset_grid_shape = offset_grid.get_shape().as_list()
   offset_grid = tf.reshape(offset_grid, [1, offset_grid_shape[1],offset_grid_shape[0]])
 
-  num_out_filters = offset_grid.get_shape().as_list()[2] + 1;
+  #25 + 1 filters: 25 for the offsets and 1 for the gt coordinate
+  num_out_filters = offset_grid.get_shape().as_list()[2] + 1; 
 
   n = tf.shape(x)[1] * tf.shape(x)[2]
   
@@ -201,6 +202,9 @@ def doForwardPass(x, out_locs, gt_loc):
 
     out_x[0] = tf.reshape(out_x[0], [tf.shape(x_sans_xa)[0], tf.shape(x_sans_xa)[1], \
                     tf.shape(x_sans_xa)[2], 1])
+
+    #combining activation of sixth convolution with output of previous layer
+    #TODO: not required for last column
     aug_x[0] = tf.concat(3, [out_x[0],x_sans_xa], name='concat_x_and_a_sans_xa')
 
     # print('out_x[0]: ', out_x[0].get_shape().as_list())
@@ -265,12 +269,12 @@ def columnActivation(aug_x, column_num, fwd_dict):
   out_locs = fwd_dict['out_locs']
 
   with tf.variable_scope('col' + str(column_num) + '1') as scope:
-    kernel = _variable_with_weight_decay('weights',
+    kernel = _variable_with_weight_decay('weights_col' + str(column_num),
                                          shape=[5, 5, FLAGS.nfc + 1, FLAGS.nfc],
                                          stddev=1,  #check if this is right
                                          wd=0.0)
     conv = tf.nn.conv2d(x, kernel, [1, 1, 1, 1], padding='SAME')
-    biases = _variable_on_cpu('biases', [FLAGS.nfc], tf.constant_initializer(1.0))
+    biases = _variable_on_cpu('biases_col' + str(column_num), [FLAGS.nfc], tf.constant_initializer(1.0))
     a = tf.nn.bias_add(conv, biases)
 
     # TODO: multiplication here results in NaN error. Find out why?
@@ -278,12 +282,12 @@ def columnActivation(aug_x, column_num, fwd_dict):
     # a = tf.multiply(a, a_with_negatives_set_to_zero, name='a_with_negatives_set_to_zero_1')
 
   with tf.variable_scope('col' + str(column_num) + '2') as scope:
-    kernel = _variable_with_weight_decay('weights',
+    kernel = _variable_with_weight_decay('weights_col' + str(column_num),
                                          shape=[5, 5, FLAGS.nfc, FLAGS.nfc],
                                          stddev=1,  #check if this is right
                                          wd=0.0)
     conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
-    biases = _variable_on_cpu('biases', [FLAGS.nfc], tf.constant_initializer(1.0))
+    biases = _variable_on_cpu('biases_col' + str(column_num), [FLAGS.nfc], tf.constant_initializer(1.0))
     a = tf.nn.bias_add(conv, biases)
 
     # TODO: multiplication here results in NaN error. Find out why?
@@ -291,12 +295,12 @@ def columnActivation(aug_x, column_num, fwd_dict):
     # a = tf.multiply(a, a_with_negatives_set_to_zero, name='mul_a_with_negatives_set_to_zero_2')      
 
   with tf.variable_scope('col' + str(column_num) + '3') as scope:
-    kernel = _variable_with_weight_decay('weights',
+    kernel = _variable_with_weight_decay('weights_col' + str(column_num),
                                          shape=[5, 5, FLAGS.nfc, num_out_filters],
                                          stddev=1,  #check if this is right
                                          wd=0.0)
     conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
-    biases = _variable_on_cpu('biases', [num_out_filters], tf.constant_initializer(1.0))
+    biases = _variable_on_cpu('biases_col' + str(column_num), [num_out_filters], tf.constant_initializer(1.0))
     a = tf.nn.bias_add(conv, biases)
 
     #w shape: [10, 42, 32, 1], a shape: [10, 42, 32, 26]
@@ -347,6 +351,12 @@ def columnActivation(aug_x, column_num, fwd_dict):
     feat_size[3] = 1    
 
     sigma = tf.cast(FLAGS.sigma, tf.float32)
+
+    # print(type(tf.get_default_session()))
+    # if tf.get_default_session() != None:
+    #   print(tf.get_default_session().run(sigma))
+    #   print sigma.eval()
+
     offset_gauss = doOffset2GaussianForward(tf.add(pc, poc), out_locs_rs, sigma, feat_size)
 
     if chained:

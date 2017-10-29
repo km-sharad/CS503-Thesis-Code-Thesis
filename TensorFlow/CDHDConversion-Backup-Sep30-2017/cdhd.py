@@ -151,7 +151,9 @@ def inference(images, meta):
     pre_activation = tf.nn.bias_add(conv, biases)
     conv6 = tf.nn.relu(pre_activation, name=scope.name)  
 
-    doForwardPass(conv6, meta['out_locs'], meta['org_gt_coords'])
+    res_aux = doForwardPass(conv6, meta['out_locs'], meta['org_gt_coords'])
+
+    return res_aux['all_preds']
     
 def doForwardPass(x, out_locs, gt_loc):
   grid_x = np.arange(-FLAGS.grid_size, FLAGS.grid_size + 1, FLAGS.grid_stride)
@@ -201,10 +203,8 @@ def doForwardPass(x, out_locs, gt_loc):
     x_shape = aug_x[0].get_shape().as_list()
     x_sans_xa = tf.slice(aug_x[0], [0,0,0,1], [x_shape[0], x_shape[1], x_shape[2], -1])
 
-    print('out_x[0] before: ', out_x[0].get_shape().as_list())
     out_x[0] = tf.reshape(out_x[0], [tf.shape(x_sans_xa)[0], tf.shape(x_sans_xa)[1], \
                     tf.shape(x_sans_xa)[2], 1])
-    print('out_x[0] after: ', out_x[0].get_shape().as_list())
 
     aug_x[0] = tf.concat(3, [out_x[0],x_sans_xa])
 
@@ -271,8 +271,9 @@ def columnActivation(aug_x, column_num, fwd_dict):
     biases = _variable_on_cpu('biases', [FLAGS.nfc], tf.constant_initializer(1.0))
     a = tf.nn.bias_add(conv, biases)
 
-    a_with_negatives_set_to_zero = tf.nn.relu(a)
-    a = tf.multiply(a, a_with_negatives_set_to_zero)
+    # TODO: multiplication here results in NaN error. Find out why?
+    # a_with_negatives_set_to_zero = tf.nn.relu(a)
+    # a = tf.multiply(a, a_with_negatives_set_to_zero)
 
   with tf.variable_scope('col' + str(column_num) + '2') as scope:
     kernel = _variable_with_weight_decay('weights',
@@ -283,8 +284,9 @@ def columnActivation(aug_x, column_num, fwd_dict):
     biases = _variable_on_cpu('biases', [FLAGS.nfc], tf.constant_initializer(1.0))
     a = tf.nn.bias_add(conv, biases)
 
-    a_with_negatives_set_to_zero = tf.nn.relu(a)
-    a = tf.multiply(a, a_with_negatives_set_to_zero)      
+    # TODO: multiplication here results in NaN error. Find out why?
+    # a_with_negatives_set_to_zero = tf.nn.relu(a)
+    # a = tf.multiply(a, a_with_negatives_set_to_zero)      
 
   with tf.variable_scope('col' + str(column_num) + '3') as scope:
     kernel = _variable_with_weight_decay('weights',
@@ -301,7 +303,9 @@ def columnActivation(aug_x, column_num, fwd_dict):
     #getNormalizedLocationWeightsFast() returns softmax of the activation w
     nw = getNormalizedLocationWeightsFast(w)
     nw_shape = nw.get_shape().as_list()
+    print('nw shape: ', nw_shape)
     nw_reshape = tf.reshape(nw, [nw_shape[0], nw_shape[1] * nw_shape[2]])
+    print('nw reshape: ', nw_reshape.get_shape().as_list())
 
     out_locs_rs = tf.convert_to_tensor(out_locs)
     out_locs_rs = tf.cast(out_locs_rs, tf.float32)
@@ -349,7 +353,7 @@ def columnActivation(aug_x, column_num, fwd_dict):
     #print('++ feat size', feat_size)
     feat_size = tf.slice(a, [0,0,0,0], [feat_size[0], feat_size[1], feat_size[2], 1]).get_shape().as_list()
     # a_slice = tf.slice(a, [0,0,0,0], [feat_size[0], feat_size[1], feat_size[2], 1])
-    print('++ feat size 2', feat_size)
+    # print('++ feat size 2', feat_size)
     # feat_size[3] = 1
     sigma = tf.cast(FLAGS.sigma, tf.float32)
 
@@ -411,7 +415,6 @@ def getNormalizedLocationWeightsFast(w):
 
 def doOffset2GaussianForward(offset, locs, sigma, feat_size):
   #based on: https://en.wikipedia.org/wiki/Radial_basis_function_kernel
-  print('offset shape: ', offset.get_shape().as_list())
 
   feat_denom = tf.reduce_sum(tf.square(tf.subtract(offset, locs[None,:,:,None])), axis=2)
   feat = tf.divide((feat_denom/2), tf.square(sigma))
