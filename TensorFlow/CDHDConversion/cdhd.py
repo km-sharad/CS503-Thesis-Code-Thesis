@@ -141,7 +141,7 @@ def inference(images,out_locs,org_gt_coords):
     conv6 = tf.nn.relu(pre_activation, name=scope.name)  
 
     res_aux = doForwardPass(conv6, out_locs, org_gt_coords)
-    return res_aux['all_preds']
+    return res_aux['pred']
     
 def doForwardPass(x, out_locs, gt_loc):
   grid_x = np.arange(-FLAGS.grid_size, FLAGS.grid_size + 1, FLAGS.grid_stride)
@@ -303,7 +303,7 @@ def columnActivation(aug_x, column_num, fwd_dict):
     biases = _variable_on_cpu('biases_col' + str(column_num), [num_out_filters], tf.constant_initializer(1.0))
     a = tf.nn.bias_add(conv, biases)
 
-    #w shape: [10, 42, 32, 1], a shape: [10, 42, 32, 26]
+    #e.g.: a shape: [10, 42, 32, 26], w shape: [10, 42, 32, 1]
     w = a[:, :, :, 0:1]
 
     #getNormalizedLocationWeightsFast() returns softmax of the activation w
@@ -313,12 +313,11 @@ def columnActivation(aug_x, column_num, fwd_dict):
     out_locs_rs = tf.convert_to_tensor(out_locs)
     out_locs_rs = tf.cast(out_locs_rs, tf.float32)
 
-    #Predict the centroid.
     pc = tf.multiply(nw_reshape[:,:,None], out_locs_rs[None,:,:])
     pc = tf.reduce_sum(pc, axis=1)
     pc = tf.reshape(pc, [tf.shape(pc)[0], 1, tf.shape(pc)[1], 1])
 
-    #Predict the offset.
+    #Predict the offset (section 3.3 of paper).
     #Use the offset grid to compute the offset.
     offset_grid = fwd_dict['offset_grid']
     num_offset_channels = offset_grid.get_shape().as_list()[2]
@@ -328,10 +327,12 @@ def columnActivation(aug_x, column_num, fwd_dict):
     offset_wts = a[:, :, :, 1: (FLAGS.grid_stride + 1)]
     offset_max = tf.reduce_max(offset_wts, axis=3)
 
+    # Softmax
     offset_wts = tf.subtract(offset_wts, offset_max[:,:,:,None])
     offset_wts = tf.exp(offset_wts)
     sum_offset_wts = tf.reduce_sum(offset_wts, axis=3)
-    offset_wts = tf.divide(offset_wts, sum_offset_wts[:,:,:,None])
+    offset_wts = tf.divide(offset_wts, sum_offset_wts[:,:,:,None])  #o(j) from section 3.3 of paper
+
     offset_grid = tf.reshape(offset_grid, [2, 1, 1, FLAGS.grid_stride])
     
     of_x = tf.multiply(tf.cast(offset_grid[0,:,:,:], tf.float32), offset_wts)
@@ -340,9 +341,11 @@ def columnActivation(aug_x, column_num, fwd_dict):
     of_x = tf.reduce_sum(of_x,axis=3)
     of_y = tf.reduce_sum(of_y,axis=3)
 
+    #po = p(i) of eq 2 from section 3.3 of paper
     po = tf.stack([of_x, of_y])
     po = tf.reshape(po, [tf.shape(po)[1], tf.shape(po)[2], tf.shape(po)[3], tf.shape(po)[0]])
 
+    #poc = P of eq 1 from section 3.2 of paper
     poc = tf.reduce_sum(tf.multiply(po,nw), axis=(1,2))
     poc_shape = poc.get_shape().as_list()
     poc = tf.reshape(poc, [tf.shape(poc)[0], 1, tf.shape(poc)[1], 1])
@@ -428,8 +431,8 @@ def computePredictionLossSL1(pred, target, transition_dist):
   comparator_lt = tf.less(dim_losses, [transition_dist]) 
 
   loss = tf.where(comparator_lt, 
-                        tf.divide(tf.subtract(dim_losses, transition_dist),2), 
-                        tf.divide(tf.square(dim_losses),2))
+                        tf.divide(tf.square(dim_losses),2),
+                        tf.divide(tf.subtract(dim_losses, transition_dist),2))   
 
   loss = tf.reduce_sum(loss, axis=2)
   # loss = tf.reshape(loss, [loss.get_shape().as_list()[0],loss.get_shape().as_list()[1],1,1])

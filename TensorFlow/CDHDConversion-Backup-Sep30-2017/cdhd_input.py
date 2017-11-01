@@ -181,7 +181,6 @@ def getImage(meta_rec, stats_dict):
     info['padding'] = padding
 
     #tensor_images = tf.convert_to_tensor(im_np_arr)
-    #print tensor_images
 
     return [im, target_loc, info]
 

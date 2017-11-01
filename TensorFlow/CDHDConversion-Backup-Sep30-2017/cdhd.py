@@ -255,6 +255,8 @@ def columnActivation(aug_x, column_num, fwd_dict):
   prev_nw = aug_x[3]
   x = aug_x[0]
 
+  print('x shape: ', x.get_shape().as_list())
+
   chained = True
   if(prev_pred == None):
     chained = False
@@ -303,14 +305,12 @@ def columnActivation(aug_x, column_num, fwd_dict):
     #getNormalizedLocationWeightsFast() returns softmax of the activation w
     nw = getNormalizedLocationWeightsFast(w)
     nw_shape = nw.get_shape().as_list()
-    print('nw shape: ', nw_shape)
     nw_reshape = tf.reshape(nw, [nw_shape[0], nw_shape[1] * nw_shape[2]])
-    print('nw reshape: ', nw_reshape.get_shape().as_list())
 
     out_locs_rs = tf.convert_to_tensor(out_locs)
     out_locs_rs = tf.cast(out_locs_rs, tf.float32)
 
-    #Predict the centroid.
+    #Predict the centroid (section 3.3 of paper).
     pc = tf.multiply(nw_reshape[:,:,None], out_locs_rs[None,:,:])
     pc_shape = pc.get_shape().as_list()
     pc = tf.reshape(pc, [pc_shape[0], pc_shape[1], pc_shape[2], 1])
@@ -318,7 +318,7 @@ def columnActivation(aug_x, column_num, fwd_dict):
     pc_shape = pc.get_shape().as_list()
     pc = tf.reshape(pc, [pc_shape[0], 1, pc_shape[1], pc_shape[2]])
 
-    #Predict the offset.
+    #Predict the offset (section 3.2 of paper).
     #Use the offset grid to compute the offset.
 
     offset_grid = fwd_dict['offset_grid']
@@ -329,10 +329,12 @@ def columnActivation(aug_x, column_num, fwd_dict):
     offset_wts = a[:, :, :, 1: (FLAGS.grid_stride + 1)]
     offset_max = tf.reduce_max(offset_wts, axis=3)
 
+    # Softmax
     offset_wts = tf.subtract(offset_wts, offset_max[:,:,:,None])
     offset_wts = tf.exp(offset_wts)
     sum_offset_wts = tf.reduce_sum(offset_wts, axis=3)
     offset_wts = tf.divide(offset_wts, sum_offset_wts[:,:,:,None])
+
     offset_grid = tf.reshape(offset_grid, [2, 1, 1, FLAGS.grid_stride])
     
     of_x = tf.multiply(tf.cast(offset_grid[0,:,:,:], tf.float32), offset_wts)
@@ -344,16 +346,16 @@ def columnActivation(aug_x, column_num, fwd_dict):
     po = tf.stack([of_x, of_y])
     po_shape = po.get_shape().as_list()
     po = tf.reshape(po, [po_shape[1], po_shape[2], po_shape[3], po_shape[0]])
+    print('po shape: ', po.get_shape().as_list())
 
     poc = tf.reduce_sum(tf.multiply(po,nw), axis=(1,2))
     poc_shape = poc.get_shape().as_list()
     poc = tf.reshape(poc, [poc_shape[0], 1, poc_shape[1], 1])
+    print('poc shape: ', poc.get_shape().as_list())
 
     feat_size = a.get_shape().as_list()
-    #print('++ feat size', feat_size)
     feat_size = tf.slice(a, [0,0,0,0], [feat_size[0], feat_size[1], feat_size[2], 1]).get_shape().as_list()
     # a_slice = tf.slice(a, [0,0,0,0], [feat_size[0], feat_size[1], feat_size[2], 1])
-    # print('++ feat size 2', feat_size)
     # feat_size[3] = 1
     sigma = tf.cast(FLAGS.sigma, tf.float32)
 
@@ -378,13 +380,18 @@ def columnActivation(aug_x, column_num, fwd_dict):
     po = tf.reshape(po, [po_shape[0], po_shape[1] * po_shape[2], po_shape[3], 1])
     indiv_preds = tf.add(out_locs_rs[None, :, :, None], po)
 
+    print('indiv pred: ', indiv_preds.get_shape().as_list())
+
     #indiv_nw
     nw_shape = nw.get_shape().as_list()
     indiv_nw = tf.reshape(nw, [nw_shape[0], nw_shape[1] * nw_shape[2], nw_shape[3], 1])
 
+    print('indiv nw: ', indiv_nw.get_shape().as_list())
+
     loss = prev_loss + (cent_loss + offs_loss * FLAGS.offset_pred_weight) * FLAGS.prev_pred_weight;    
 
     xx = offset_gauss;
+    print('xx shape: ', xx.get_shape().as_list())
     out_x = [xx, pc + poc, indiv_preds, indiv_nw, loss]
 
     res = {}
@@ -431,8 +438,8 @@ def computePredictionLossSL1(pred, target, transition_dist):
   comparator_lt = tf.less(dim_losses, [transition_dist]) 
 
   loss = tf.where(comparator_lt, 
-                        tf.divide(tf.subtract(dim_losses, transition_dist),2), 
-                        tf.divide(tf.square(dim_losses),2))
+                        tf.divide(tf.square(dim_losses),2),
+                        tf.divide(tf.subtract(dim_losses, transition_dist),2)) 
 
   loss = tf.reduce_sum(loss, axis=2)
   loss = tf.reshape(loss, [loss.get_shape().as_list()[0],loss.get_shape().as_list()[1],1,1])

@@ -159,8 +159,8 @@ def train(stats_dict):
 
       print('images shape: ',distorted_images.shape)
 
-      sess.run(logits, {images: distorted_images, out_locs: meta['out_locs'], \
-              org_gt_coords: meta['org_gt_coords']})
+      print(sess.run(logits, {images: distorted_images, out_locs: meta['out_locs'], \
+              org_gt_coords: meta['org_gt_coords']}))
 
       duration = time.time() - start_time
 
