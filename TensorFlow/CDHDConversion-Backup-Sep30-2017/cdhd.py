@@ -217,8 +217,14 @@ def doForwardPass(x, out_locs, gt_loc):
       all_preds = aug_x[1]
       all_cents = res_step['pc']
     else:  
+      print('all preds shape 1: ', all_preds.get_shape().as_list())
+      print('aug_x[1] shape: ', aug_x[1].get_shape().as_list())
       all_preds = tf.concat(1,[all_preds, tf.cast(aug_x[1], tf.float32)])
+      print('all preds shape 2: ', all_preds.get_shape().as_list())
+      print('all cents shape 1: ', all_cents.get_shape().as_list())
+      print('res_step[pc] shape: ', res_step['pc'].get_shape().as_list())            
       all_cents = tf.concat(1, [all_cents, tf.cast(res_step['pc'], tf.float32)])
+      print('all cents shape 2: ', all_cents.get_shape().as_list())
 
   gt_loc = tf.convert_to_tensor(gt_loc)
   gt_loc = tf.cast(gt_loc, tf.float32)
@@ -254,8 +260,6 @@ def columnActivation(aug_x, column_num, fwd_dict):
   prev_offsets = aug_x[2]
   prev_nw = aug_x[3]
   x = aug_x[0]
-
-  print('x shape: ', x.get_shape().as_list())
 
   chained = True
   if(prev_pred == None):
@@ -346,12 +350,10 @@ def columnActivation(aug_x, column_num, fwd_dict):
     po = tf.stack([of_x, of_y])
     po_shape = po.get_shape().as_list()
     po = tf.reshape(po, [po_shape[1], po_shape[2], po_shape[3], po_shape[0]])
-    print('po shape: ', po.get_shape().as_list())
 
     poc = tf.reduce_sum(tf.multiply(po,nw), axis=(1,2))
     poc_shape = poc.get_shape().as_list()
     poc = tf.reshape(poc, [poc_shape[0], 1, poc_shape[1], 1])
-    print('poc shape: ', poc.get_shape().as_list())
 
     feat_size = a.get_shape().as_list()
     feat_size = tf.slice(a, [0,0,0,0], [feat_size[0], feat_size[1], feat_size[2], 1]).get_shape().as_list()
@@ -380,18 +382,14 @@ def columnActivation(aug_x, column_num, fwd_dict):
     po = tf.reshape(po, [po_shape[0], po_shape[1] * po_shape[2], po_shape[3], 1])
     indiv_preds = tf.add(out_locs_rs[None, :, :, None], po)
 
-    print('indiv pred: ', indiv_preds.get_shape().as_list())
-
     #indiv_nw
     nw_shape = nw.get_shape().as_list()
     indiv_nw = tf.reshape(nw, [nw_shape[0], nw_shape[1] * nw_shape[2], nw_shape[3], 1])
 
-    print('indiv nw: ', indiv_nw.get_shape().as_list())
-
     loss = prev_loss + (cent_loss + offs_loss * FLAGS.offset_pred_weight) * FLAGS.prev_pred_weight;    
 
     xx = offset_gauss;
-    print('xx shape: ', xx.get_shape().as_list())
+    xx = tf.reshape(xx, [tf.shape(x)[0], tf.shape(x)[1], tf.shape(x)[2],1])    
     out_x = [xx, pc + poc, indiv_preds, indiv_nw, loss]
 
     res = {}
@@ -424,7 +422,8 @@ def doOffset2GaussianForward(offset, locs, sigma, feat_size):
   #based on: https://en.wikipedia.org/wiki/Radial_basis_function_kernel
 
   feat_denom = tf.reduce_sum(tf.square(tf.subtract(offset, locs[None,:,:,None])), axis=2)
-  feat = tf.divide((feat_denom/2), tf.square(sigma))
+  # feat = tf.divide((feat_denom/2), tf.square(sigma))
+  feat = tf.divide((tf.divide(feat_denom,2)), tf.square(sigma))
   feat_shape = feat.get_shape().as_list()
   feat = tf.reshape(feat, [feat_shape[0], feat_shape[1], feat_shape[2], 1]) 
   feat = tf.exp(-feat)

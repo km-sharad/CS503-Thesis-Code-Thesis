@@ -205,15 +205,12 @@ def doForwardPass(x, out_locs, gt_loc):
 
     #combining activation of sixth convolution with output of previous layer
     #TODO: not required for last column
-    aug_x[0] = tf.concat(3, [out_x[0],x_sans_xa], name='concat_x_and_a_sans_xa')
+    aug_x[0] = tf.concat(3, [out_x[0],x_sans_xa], name='concat_x_and_a_sans_xa') #xx
 
-    # print('out_x[0]: ', out_x[0].get_shape().as_list())
-    # print('x_sans_xa: ', x_sans_xa.get_shape().as_list())    
-
-    aug_x[1] = out_x[1]
-    aug_x[2] = out_x[2]
-    aug_x[3] = out_x[3]
-    aug_x[4] = out_x[4]
+    aug_x[1] = out_x[1]     #pc + poc
+    aug_x[2] = out_x[2]     #indiv_preds
+    aug_x[3] = out_x[3]     #indiv_nw
+    aug_x[4] = out_x[4]     #loss
 
     if(i == 0):
       all_preds = aug_x[1]
@@ -255,11 +252,11 @@ def doForwardPass(x, out_locs, gt_loc):
   return res_aux
 
 def columnActivation(aug_x, column_num, fwd_dict):
-  prev_pred = aug_x[1]
-  prev_loss = aug_x[4]
-  prev_offsets = aug_x[2]
-  prev_nw = aug_x[3]
-  x = aug_x[0]
+  prev_pred = aug_x[1]        #pc + poc
+  prev_loss = aug_x[4]        #loss
+  prev_offsets = aug_x[2]     #indiv_preds
+  prev_nw = aug_x[3]          #indiv_nw
+  x = aug_x[0]                #xx
 
   chained = True
   if(prev_pred == None):
@@ -367,7 +364,6 @@ def columnActivation(aug_x, column_num, fwd_dict):
       offs_loss, offs_residue = computePredictionLossSL1(prev_offsets, pc, FLAGS.transition_dist)
 
       offs_loss = tf.reduce_sum(tf.multiply(offs_loss, prev_nw), axis=1)
-      # offs_loss = tf.reshape(offs_loss, [offs_loss.get_shape().as_list()[0],1,1,1])
       offs_loss = tf.reshape(offs_loss, [tf.shape(offs_loss)[0],1,1,1])
     else:
       cent_residue = pc * 0;
@@ -385,6 +381,7 @@ def columnActivation(aug_x, column_num, fwd_dict):
     loss = prev_loss + (cent_loss + offs_loss * FLAGS.offset_pred_weight) * FLAGS.prev_pred_weight;    
 
     xx = offset_gauss;
+    xx = tf.reshape(xx, [tf.shape(x)[0], tf.shape(x)[1], tf.shape(x)[2],1])    
     out_x = [xx, pc + poc, indiv_preds, indiv_nw, loss]
 
     res = {}
@@ -416,7 +413,7 @@ def getNormalizedLocationWeightsFast(w):
 def doOffset2GaussianForward(offset, locs, sigma, feat_size):
   #based on: https://en.wikipedia.org/wiki/Radial_basis_function_kernel
   feat_denom = tf.reduce_sum(tf.square(tf.subtract(offset, locs[None,:,:,None])), axis=2)
-  feat = tf.divide((feat_denom/2), tf.square(sigma))
+  feat = tf.divide((tf.divide(feat_denom,2)), tf.square(sigma))
   feat_shape = feat.get_shape().as_list()
   feat = tf.reshape(feat, [tf.shape(feat)[0], tf.shape(feat)[1], tf.shape(feat)[2], 1]) 
   feat = tf.exp(-feat)
