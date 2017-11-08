@@ -69,187 +69,39 @@ def _variable_with_weight_decay(name, shape, stddev, wd):
     tf.add_to_collection('losses', weight_decay)
   return var
 
-#def inference(images1, meta):
-def inference(images,out_locs,org_gt_coords):
-  # conv1
-  with tf.variable_scope('conv1') as scope:
-    kernel = _variable_with_weight_decay('weights',
-                                         shape=[3, 3, 3, 32],
-                                         stddev=1,  #check if this is right
-                                         wd=0.0)
-    conv = tf.nn.conv2d(images, kernel, [1, 2, 2, 1], padding='VALID')
-    biases = _variable_on_cpu('biases', [32], tf.constant_initializer(1.0))
-    pre_activation = tf.nn.bias_add(conv, biases)
-    conv1 = tf.nn.relu(pre_activation, name=scope.name)
-    
-  #TODO: check if activation_summary is required
-  #TODO: check if normalization is required (https://www.tensorflow.org/api_docs/python/tf/nn/local_response_normalization) 
+def getNormalizedLocationWeightsFast(w):
+  #Softmax
+  a = tf.reduce_max(w, axis=(1,2))
+  ew = tf.exp(tf.subtract(w, a[:,None,None,:]))
+  sew = tf.reduce_sum(ew, axis=(1,2))
+  nw = tf.divide(ew,sew[:,None,None,:])
+  return nw
 
-  # conv2
-  with tf.variable_scope('conv2') as scope:
-    kernel = _variable_with_weight_decay('weights',
-                                         shape=[3, 3, 32, 64],
-                                         stddev=1,
-                                         wd=0.0)
-    conv = tf.nn.conv2d(conv1, kernel, [1, 2, 2, 1], padding='VALID')
-    biases = _variable_on_cpu('biases', [64], tf.constant_initializer(1.0))
-    pre_activation = tf.nn.bias_add(conv, biases)
-    conv2 = tf.nn.relu(pre_activation, name=scope.name)
+def doOffset2GaussianForward(offset, locs, sigma, feat_size):
+  #based on: https://en.wikipedia.org/wiki/Radial_basis_function_kernel
+  feat_denom = tf.reduce_sum(tf.square(tf.subtract(offset, locs[None,:,:,None])), axis=2)
+  feat = tf.divide((tf.divide(feat_denom,2)), tf.square(sigma))
+  feat_shape = feat.get_shape().as_list()
+  feat = tf.reshape(feat, [tf.shape(feat)[0], tf.shape(feat)[1], tf.shape(feat)[2], 1]) 
+  feat = tf.exp(-feat)
+  # feat_size = [feat_size[0], tf.shape(feat)[1], tf.shape(feat)[2],1]
+  # feat = tf.reshape(feat, tf.convert_to_tensor(feat_size))
+  return feat  
 
-  # conv3
-  with tf.variable_scope('conv3') as scope:
-    kernel = _variable_with_weight_decay('weights',
-                                         shape=[3, 3, 64, 64],
-                                         stddev=1,
-                                         wd=0.0)
-    conv = tf.nn.conv2d(conv2, kernel, [1, 2, 2, 1], padding='VALID')
-    biases = _variable_on_cpu('biases', [64], tf.constant_initializer(1.0))
-    pre_activation = tf.nn.bias_add(conv, biases)
-    conv3 = tf.nn.relu(pre_activation, name=scope.name)    
+def computePredictionLossSL1(pred, target, transition_dist):
+  residue = tf.subtract(pred, target)
+  dim_losses = tf.abs(residue)
 
-  # conv4
-  with tf.variable_scope('conv4') as scope:
-    kernel = _variable_with_weight_decay('weights',
-                                         shape=[3, 3, 64, 64],
-                                         stddev=1,
-                                         wd=0.0)
-    conv = tf.nn.conv2d(conv3, kernel, [1, 1, 1, 1], padding='SAME')
-    biases = _variable_on_cpu('biases', [64], tf.constant_initializer(1.0))
-    pre_activation = tf.nn.bias_add(conv, biases)
-    conv4 = tf.nn.relu(pre_activation, name=scope.name)        
+  comparator_lt = tf.less(dim_losses, [transition_dist]) 
 
-  # conv5
-  with tf.variable_scope('conv5') as scope:
-    kernel = _variable_with_weight_decay('weights',
-                                         shape=[3, 3, 64, 128],
-                                         stddev=1,
-                                         wd=0.0)
-    conv = tf.nn.conv2d(conv4, kernel, [1, 2, 2, 1], padding='VALID')
-    biases = _variable_on_cpu('biases', [128], tf.constant_initializer(1.0))
-    pre_activation = tf.nn.bias_add(conv, biases)
-    conv5 = tf.nn.relu(pre_activation, name=scope.name)    
+  loss = tf.where(comparator_lt, 
+                        tf.divide(tf.square(dim_losses),2),
+                        tf.divide(tf.subtract(dim_losses, transition_dist),2))   
 
-  # conv6
-  with tf.variable_scope('conv6') as scope:
-    kernel = _variable_with_weight_decay('weights',
-                                         shape=[5, 5, 128, 128],
-                                         stddev=1,
-                                         wd=0.0)
-    conv = tf.nn.conv2d(conv5, kernel, [1, 1, 1, 1], padding='SAME')
-    biases = _variable_on_cpu('biases', [128], tf.constant_initializer(1.0))
-    pre_activation = tf.nn.bias_add(conv, biases)
-    conv6 = tf.nn.relu(pre_activation, name=scope.name)  
-
-    res_aux = doForwardPass(conv6, out_locs, org_gt_coords)
-    return res_aux['pred']
-    
-def doForwardPass(x, out_locs, gt_loc):
-  grid_x = np.arange(-FLAGS.grid_size, FLAGS.grid_size + 1, FLAGS.grid_stride)
-  grid_y = np.arange(-FLAGS.grid_size, FLAGS.grid_size + 1, FLAGS.grid_stride)
-
-  offset_grid_list = []
-  for xi in xrange(grid_x.shape[0]):
-    for yi in xrange(grid_y.shape[0]):
-      offset_grid_list.append((grid_x[xi], grid_y[yi]))
-
-  offset_grid = np.asarray(offset_grid_list) 
-  offset_grid = tf.convert_to_tensor(offset_grid)
-  offset_grid_shape = offset_grid.get_shape().as_list()
-  offset_grid = tf.reshape(offset_grid, [1, offset_grid_shape[1],offset_grid_shape[0]])
-
-  #25 + 1 filters: 25 for the offsets and 1 for the gt coordinate
-  num_out_filters = offset_grid.get_shape().as_list()[2] + 1; 
-
-  n = tf.shape(x)[1] * tf.shape(x)[2]
-  
-  xa = tf.cast(tf.divide(tf.ones([x.get_shape().as_list()[0], \
-                tf.shape(x)[1],tf.shape(x)[2],1], tf.int32), n), tf.float32)
-
-  #If above approach does not work, try following
-  #TODO: feed populated xa using formula:
-  # n = x_shape[1] * x_shape[2]
-  # xa = tf.cast(tf.divide(tf.ones([x_shape[0], x_shape[1],x_shape[2],1], tf.int32), n), tf.float32)
-  #xa = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, None, None, 1])
-
-  x = tf.concat(3, [xa,x])    #IN NEWER VERSION OF TF CORRECT COMMAND IS: tf.concat([xa,x], 3)
-
-  res_steps = []
-
-  fwd_dict = {}
-  fwd_dict['num_out_filters'] = num_out_filters
-  fwd_dict['out_locs'] = out_locs
-  fwd_dict['offset_grid'] = offset_grid
-
-  #assert(out_locs.shape[0] == x.get_shape().as_list()[1] * x.get_shape().as_list()[2]), \
-  #            "assertion error in forward pass"
-
-  aug_x = [x, None, None, None, 0]
-
-  all_preds = None
-  all_cents = None
-
-  res_step = None
-  for i in xrange(FLAGS.steps):
-    res_step = columnActivation(aug_x, i, fwd_dict)
-    res_steps.append(res_step)
-    out_x = res_step['x']
-
-    #Output of step 1 goes as input to step 2 and output of step 2 goes as input to step 3
-    x_shape = aug_x[0].get_shape().as_list()
-    #TODO: check size of x_sans_xa after data is fed
-    x_sans_xa = tf.slice(aug_x[0], [0,0,0,1], [tf.shape(aug_x[0])[0], tf.shape(aug_x[0])[1], \
-                    tf.shape(aug_x[0])[2], -1])
-
-    out_x[0] = tf.reshape(out_x[0], [tf.shape(x_sans_xa)[0], tf.shape(x_sans_xa)[1], \
-                    tf.shape(x_sans_xa)[2], 1])
-
-    #combining activation of sixth convolution with output of previous layer
-    #TODO: not required for last column
-    aug_x[0] = tf.concat(3, [out_x[0],x_sans_xa], name='concat_x_and_a_sans_xa') #xx
-
-    aug_x[1] = out_x[1]     #pc + poc
-    aug_x[2] = out_x[2]     #indiv_preds
-    aug_x[3] = out_x[3]     #indiv_nw
-    aug_x[4] = out_x[4]     #loss
-
-    if(i == 0):
-      all_preds = aug_x[1]
-      all_cents = res_step['pc']
-    else:  
-      all_preds = tf.concat(1,[all_preds, tf.cast(aug_x[1], tf.float32)])
-      all_cents = tf.concat(1, [all_cents, tf.cast(res_step['pc'], tf.float32)])
-
-  gt_loc = tf.convert_to_tensor(gt_loc)
-  gt_loc = tf.cast(gt_loc, tf.float32)
-  gt_loc_shape = gt_loc.get_shape().as_list()
-  gt_loc = tf.reshape(gt_loc, [tf.shape(gt_loc)[0],1, tf.shape(gt_loc)[1],1])
-
-  #Compute the loss.
-  target_loss, target_residue = computePredictionLossSL1(res_step['x'][1], gt_loc, FLAGS.transition_dist)
-  offs_loss, offs_residue = computePredictionLossSL1(res_step['x'][2], gt_loc, FLAGS.transition_dist)
-
-  offs_loss = tf.reduce_sum(tf.multiply(offs_loss, res_step['x'][3]), axis=1)
-  # offs_loss = tf.reshape(offs_loss, [offs_loss.get_shape().as_list()[0],1,1,1])
-  offs_loss = tf.reshape(offs_loss, [tf.shape(offs_loss)[0],1,1,1])
-
-  loss = tf.add(tf.add(target_loss, res_step['x'][4]),
-                tf.multiply(offs_loss, FLAGS.offset_pred_weight))
-  
-  pred = res_step['x'][1]
-
-  res_aux = {}
-  # res = res_ip1;
-  res_aux['loss'] = loss
-  res_aux['pred'] = pred  
-  res_aux['all_preds'] = all_preds  
-  res_aux['all_cents'] = all_cents  
-  res_aux['res_steps'] = res_steps  
-  # res.aux.nzw_frac = 0;
-  res_aux['target_residue'] = target_residue  
-  res_aux['offs_residue'] = offs_residue  
-  res_aux['offs_loss'] = tf.multiply(offs_loss, FLAGS.offset_pred_weight)  
-
-  return res_aux
+  loss = tf.reduce_sum(loss, axis=2)
+  # loss = tf.reshape(loss, [loss.get_shape().as_list()[0],loss.get_shape().as_list()[1],1,1])
+  loss = tf.reshape(loss, [tf.shape(loss)[0],tf.shape(loss)[1],1,1])
+  return loss, residue    
 
 def columnActivation(aug_x, column_num, fwd_dict):
   prev_pred = aug_x[1]        #pc + poc
@@ -400,40 +252,194 @@ def columnActivation(aug_x, column_num, fwd_dict):
     res['nzw_frac'] = 0 #TODO: what is this?
     res['interim'] = a  #TODO: check if this is right
 
-    return res
+    return res  
 
-def getNormalizedLocationWeightsFast(w):
-  #Softmax
-  a = tf.reduce_max(w, axis=(1,2))
-  ew = tf.exp(tf.subtract(w, a[:,None,None,:]))
-  sew = tf.reduce_sum(ew, axis=(1,2))
-  nw = tf.divide(ew,sew[:,None,None,:])
-  return nw
+def doForwardPass(x, out_locs, gt_loc):
+  grid_x = np.arange(-FLAGS.grid_size, FLAGS.grid_size + 1, FLAGS.grid_stride)
+  grid_y = np.arange(-FLAGS.grid_size, FLAGS.grid_size + 1, FLAGS.grid_stride)
 
-def doOffset2GaussianForward(offset, locs, sigma, feat_size):
-  #based on: https://en.wikipedia.org/wiki/Radial_basis_function_kernel
-  feat_denom = tf.reduce_sum(tf.square(tf.subtract(offset, locs[None,:,:,None])), axis=2)
-  feat = tf.divide((tf.divide(feat_denom,2)), tf.square(sigma))
-  feat_shape = feat.get_shape().as_list()
-  feat = tf.reshape(feat, [tf.shape(feat)[0], tf.shape(feat)[1], tf.shape(feat)[2], 1]) 
-  feat = tf.exp(-feat)
-  # feat_size = [feat_size[0], tf.shape(feat)[1], tf.shape(feat)[2],1]
-  # feat = tf.reshape(feat, tf.convert_to_tensor(feat_size))
-  return feat  
+  offset_grid_list = []
+  for xi in xrange(grid_x.shape[0]):
+    for yi in xrange(grid_y.shape[0]):
+      offset_grid_list.append((grid_x[xi], grid_y[yi]))
 
-def computePredictionLossSL1(pred, target, transition_dist):
-  residue = tf.subtract(pred, target)
-  dim_losses = tf.abs(residue)
+  offset_grid = np.asarray(offset_grid_list) 
+  offset_grid = tf.convert_to_tensor(offset_grid)
+  offset_grid_shape = offset_grid.get_shape().as_list()
+  offset_grid = tf.reshape(offset_grid, [1, offset_grid_shape[1],offset_grid_shape[0]])
 
-  comparator_lt = tf.less(dim_losses, [transition_dist]) 
+  #25 + 1 filters: 25 for the offsets and 1 for the gt coordinate
+  num_out_filters = offset_grid.get_shape().as_list()[2] + 1; 
 
-  loss = tf.where(comparator_lt, 
-                        tf.divide(tf.square(dim_losses),2),
-                        tf.divide(tf.subtract(dim_losses, transition_dist),2))   
+  n = tf.shape(x)[1] * tf.shape(x)[2]
+  
+  xa = tf.cast(tf.divide(tf.ones([x.get_shape().as_list()[0], \
+                tf.shape(x)[1],tf.shape(x)[2],1], tf.int32), n), tf.float32)
 
-  loss = tf.reduce_sum(loss, axis=2)
-  # loss = tf.reshape(loss, [loss.get_shape().as_list()[0],loss.get_shape().as_list()[1],1,1])
-  loss = tf.reshape(loss, [tf.shape(loss)[0],tf.shape(loss)[1],1,1])
-  return loss, residue
+  #If above approach does not work, try following
+  #TODO: feed populated xa using formula:
+  # n = x_shape[1] * x_shape[2]
+  # xa = tf.cast(tf.divide(tf.ones([x_shape[0], x_shape[1],x_shape[2],1], tf.int32), n), tf.float32)
+  #xa = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, None, None, 1])
+
+  x = tf.concat(3, [xa,x])    #IN NEWER VERSION OF TF CORRECT COMMAND IS: tf.concat([xa,x], 3)
+
+  res_steps = []
+
+  fwd_dict = {}
+  fwd_dict['num_out_filters'] = num_out_filters
+  fwd_dict['out_locs'] = out_locs
+  fwd_dict['offset_grid'] = offset_grid
+
+  #assert(out_locs.shape[0] == x.get_shape().as_list()[1] * x.get_shape().as_list()[2]), \
+  #            "assertion error in forward pass"
+
+  aug_x = [x, None, None, None, 0]
+
+  all_preds = None
+  all_cents = None
+
+  res_step = None
+  for i in xrange(FLAGS.steps):
+    res_step = columnActivation(aug_x, i, fwd_dict)
+    res_steps.append(res_step)
+    out_x = res_step['x']
+
+    #Output of step 1 goes as input to step 2 and output of step 2 goes as input to step 3
+    x_shape = aug_x[0].get_shape().as_list()
+    #TODO: check size of x_sans_xa after data is fed
+    x_sans_xa = tf.slice(aug_x[0], [0,0,0,1], [tf.shape(aug_x[0])[0], tf.shape(aug_x[0])[1], \
+                    tf.shape(aug_x[0])[2], -1])
+
+    out_x[0] = tf.reshape(out_x[0], [tf.shape(x_sans_xa)[0], tf.shape(x_sans_xa)[1], \
+                    tf.shape(x_sans_xa)[2], 1])
+
+    #combining activation of sixth convolution with output of previous layer
+    #TODO: not required for last column
+    aug_x[0] = tf.concat(3, [out_x[0],x_sans_xa], name='concat_x_and_a_sans_xa') #xx
+
+    aug_x[1] = out_x[1]     #pc + poc
+    aug_x[2] = out_x[2]     #indiv_preds
+    aug_x[3] = out_x[3]     #indiv_nw
+    aug_x[4] = out_x[4]     #loss
+
+    if(i == 0):
+      all_preds = aug_x[1]
+      all_cents = res_step['pc']
+    else:  
+      all_preds = tf.concat(1,[all_preds, tf.cast(aug_x[1], tf.float32)])
+      all_cents = tf.concat(1, [all_cents, tf.cast(res_step['pc'], tf.float32)])
+
+  gt_loc = tf.convert_to_tensor(gt_loc)
+  gt_loc = tf.cast(gt_loc, tf.float32)
+  gt_loc_shape = gt_loc.get_shape().as_list()
+  gt_loc = tf.reshape(gt_loc, [tf.shape(gt_loc)[0],1, tf.shape(gt_loc)[1],1])
+
+  #Compute the loss.
+  target_loss, target_residue = computePredictionLossSL1(res_step['x'][1], gt_loc, FLAGS.transition_dist)
+  offs_loss, offs_residue = computePredictionLossSL1(res_step['x'][2], gt_loc, FLAGS.transition_dist)
+
+  offs_loss = tf.reduce_sum(tf.multiply(offs_loss, res_step['x'][3]), axis=1)
+  # offs_loss = tf.reshape(offs_loss, [offs_loss.get_shape().as_list()[0],1,1,1])
+  offs_loss = tf.reshape(offs_loss, [tf.shape(offs_loss)[0],1,1,1])
+
+  loss = tf.add(tf.add(target_loss, res_step['x'][4]),
+                tf.multiply(offs_loss, FLAGS.offset_pred_weight))
+  
+  pred = res_step['x'][1]
+
+  res_aux = {}
+  # res = res_ip1;
+  res_aux['loss'] = loss
+  res_aux['pred'] = pred  
+  res_aux['all_preds'] = all_preds  
+  res_aux['all_cents'] = all_cents  
+  res_aux['res_steps'] = res_steps  
+  # res.aux.nzw_frac = 0;
+  res_aux['target_residue'] = target_residue  
+  res_aux['offs_residue'] = offs_residue  
+  res_aux['offs_loss'] = tf.multiply(offs_loss, FLAGS.offset_pred_weight)  
+
+  return res_aux
+
+#def inference(images1, meta):
+def inference(images,out_locs,org_gt_coords):
+  # conv1
+  with tf.variable_scope('conv1') as scope:
+    kernel = _variable_with_weight_decay('weights',
+                                         shape=[3, 3, 3, 32],
+                                         stddev=1,  #check if this is right
+                                         wd=0.0)
+    conv = tf.nn.conv2d(images, kernel, [1, 2, 2, 1], padding='VALID')
+    biases = _variable_on_cpu('biases', [32], tf.constant_initializer(1.0))
+    pre_activation = tf.nn.bias_add(conv, biases)
+    conv1 = tf.nn.relu(pre_activation, name=scope.name)
+    
+  #TODO: check if activation_summary is required
+  #TODO: check if normalization is required (https://www.tensorflow.org/api_docs/python/tf/nn/local_response_normalization) 
+
+  # conv2
+  with tf.variable_scope('conv2') as scope:
+    kernel = _variable_with_weight_decay('weights',
+                                         shape=[3, 3, 32, 64],
+                                         stddev=1,
+                                         wd=0.0)
+    conv = tf.nn.conv2d(conv1, kernel, [1, 2, 2, 1], padding='VALID')
+    biases = _variable_on_cpu('biases', [64], tf.constant_initializer(1.0))
+    pre_activation = tf.nn.bias_add(conv, biases)
+    conv2 = tf.nn.relu(pre_activation, name=scope.name)
+
+  # conv3
+  with tf.variable_scope('conv3') as scope:
+    kernel = _variable_with_weight_decay('weights',
+                                         shape=[3, 3, 64, 64],
+                                         stddev=1,
+                                         wd=0.0)
+    conv = tf.nn.conv2d(conv2, kernel, [1, 2, 2, 1], padding='VALID')
+    biases = _variable_on_cpu('biases', [64], tf.constant_initializer(1.0))
+    pre_activation = tf.nn.bias_add(conv, biases)
+    conv3 = tf.nn.relu(pre_activation, name=scope.name)    
+
+  # conv4
+  with tf.variable_scope('conv4') as scope:
+    kernel = _variable_with_weight_decay('weights',
+                                         shape=[3, 3, 64, 64],
+                                         stddev=1,
+                                         wd=0.0)
+    conv = tf.nn.conv2d(conv3, kernel, [1, 1, 1, 1], padding='SAME')
+    biases = _variable_on_cpu('biases', [64], tf.constant_initializer(1.0))
+    pre_activation = tf.nn.bias_add(conv, biases)
+    conv4 = tf.nn.relu(pre_activation, name=scope.name)        
+
+  # conv5
+  with tf.variable_scope('conv5') as scope:
+    kernel = _variable_with_weight_decay('weights',
+                                         shape=[3, 3, 64, 128],
+                                         stddev=1,
+                                         wd=0.0)
+    conv = tf.nn.conv2d(conv4, kernel, [1, 2, 2, 1], padding='VALID')
+    biases = _variable_on_cpu('biases', [128], tf.constant_initializer(1.0))
+    pre_activation = tf.nn.bias_add(conv, biases)
+    conv5 = tf.nn.relu(pre_activation, name=scope.name)    
+
+  # conv6
+  with tf.variable_scope('conv6') as scope:
+    kernel = _variable_with_weight_decay('weights',
+                                         shape=[5, 5, 128, 128],
+                                         stddev=1,
+                                         wd=0.0)
+    conv = tf.nn.conv2d(conv5, kernel, [1, 1, 1, 1], padding='SAME')
+    biases = _variable_on_cpu('biases', [128], tf.constant_initializer(1.0))
+    pre_activation = tf.nn.bias_add(conv, biases)
+    conv6 = tf.nn.relu(pre_activation, name=scope.name)  
+
+    res_aux = doForwardPass(conv6, out_locs, org_gt_coords)
+    return res_aux
+
+def buildModelAndTrain(images,out_locs,org_gt_coords):
+  res_aux = inference(images,out_locs,org_gt_coords)
+  return res_aux['pred']
+
+
 
 

@@ -121,7 +121,7 @@ def train(stats_dict):
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
-    logits = cdhd.inference(images,out_locs,org_gt_coords)
+    logits = cdhd.buildModelAndTrain(images,out_locs,org_gt_coords)
 
     #import pdb
     #pdb.set_trace()
