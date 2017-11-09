@@ -217,14 +217,8 @@ def doForwardPass(x, out_locs, gt_loc):
       all_preds = aug_x[1]
       all_cents = res_step['pc']
     else:  
-      print('all preds shape 1: ', all_preds.get_shape().as_list())
-      print('aug_x[1] shape: ', aug_x[1].get_shape().as_list())
       all_preds = tf.concat(1,[all_preds, tf.cast(aug_x[1], tf.float32)])
-      print('all preds shape 2: ', all_preds.get_shape().as_list())
-      print('all cents shape 1: ', all_cents.get_shape().as_list())
-      print('res_step[pc] shape: ', res_step['pc'].get_shape().as_list())            
       all_cents = tf.concat(1, [all_cents, tf.cast(res_step['pc'], tf.float32)])
-      print('all cents shape 2: ', all_cents.get_shape().as_list())
 
   gt_loc = tf.convert_to_tensor(gt_loc)
   gt_loc = tf.cast(gt_loc, tf.float32)
@@ -240,6 +234,10 @@ def doForwardPass(x, out_locs, gt_loc):
 
   loss = tf.add(tf.add(target_loss, res_step['x'][4]),
                 tf.multiply(offs_loss, FLAGS.offset_pred_weight))
+
+  print('target loss: ', target_loss.get_shape().as_list())
+  print('res_step[x][4] shape:', res_step['x'][4].get_shape().as_list())
+  print('offs_loss shape: ', offs_loss.get_shape().as_list())
   
   pred = res_step['x'][1]
 

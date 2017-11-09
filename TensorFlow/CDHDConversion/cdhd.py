@@ -230,6 +230,7 @@ def columnActivation(aug_x, column_num, fwd_dict):
     #indiv_nw
     indiv_nw = tf.reshape(nw, [tf.shape(nw)[0], tf.shape(nw)[1] * tf.shape(nw)[2], tf.shape(nw)[3], 1])
 
+    # TODO: check if it's ok to multiply current iteration's preds with ptrv iter weights
     loss = prev_loss + (cent_loss + offs_loss * FLAGS.offset_pred_weight) * FLAGS.prev_pred_weight;    
 
     xx = offset_gauss;
@@ -311,6 +312,7 @@ def doForwardPass(x, out_locs, gt_loc):
     x_sans_xa = tf.slice(aug_x[0], [0,0,0,1], [tf.shape(aug_x[0])[0], tf.shape(aug_x[0])[1], \
                     tf.shape(aug_x[0])[2], -1])
 
+    # out_x[0] = output of previous layer
     out_x[0] = tf.reshape(out_x[0], [tf.shape(x_sans_xa)[0], tf.shape(x_sans_xa)[1], \
                     tf.shape(x_sans_xa)[2], 1])
 
@@ -436,9 +438,13 @@ def inference(images,out_locs,org_gt_coords):
     res_aux = doForwardPass(conv6, out_locs, org_gt_coords)
     return res_aux
 
+def train(res_aux):
+  print('do something!')
+
 def buildModelAndTrain(images,out_locs,org_gt_coords):
   res_aux = inference(images,out_locs,org_gt_coords)
-  return res_aux['pred']
+  train(res_aux)
+  return res_aux['loss']
 
 
 
