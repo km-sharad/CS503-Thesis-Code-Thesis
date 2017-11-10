@@ -54,8 +54,8 @@ def distorted_inputs(stats_dict, batch_size):
   #for image_idx in xrange(batch_size):
   for image_idx in xrange(10):
     #read and convert images into numpy array
-    #meta_rec = anno_file_batch_rows[image_idx].split('|')
-    meta_rec = anno_file_lines[image_idx].split('|')
+    meta_rec = anno_file_batch_rows[image_idx].split('|')
+    # meta_rec = anno_file_lines[image_idx].split('|')
     [image, target_loc, info] = getImage(meta_rec, stats_dict)
 
     images.append(image)

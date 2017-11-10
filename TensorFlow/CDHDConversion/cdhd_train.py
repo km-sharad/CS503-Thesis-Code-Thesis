@@ -153,18 +153,22 @@ def train(stats_dict):
     # sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
 
     # for step in xrange(FLAGS.max_steps):
-    for step in xrange(2):
+    for step in xrange(50000):
       start_time = time.time()
       distorted_images, meta = cdhd_input.distorted_inputs(stats_dict, FLAGS.batch_size)
 
-      print('images shape: ',distorted_images.shape)
+      # print('images shape: ',distorted_images.shape)
 
-      print(sess.run(logits, {images: distorted_images, out_locs: meta['out_locs'], \
-              org_gt_coords: meta['org_gt_coords']}))
+      loss = sess.run(logits, {images: distorted_images, out_locs: meta['out_locs'], \
+              org_gt_coords: meta['org_gt_coords']})
+
+      # print('loss shape: ', loss.shape)
+
+      print(step, np.sum(loss, axis=0)[0,0,0])
 
       duration = time.time() - start_time
 
-      print('duration: ', duration)
+      # print('duration: ', duration)
     
     writer.close()
 

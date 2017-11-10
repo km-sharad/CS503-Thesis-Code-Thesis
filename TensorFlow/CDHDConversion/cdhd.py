@@ -40,7 +40,7 @@ def _variable_on_cpu(name, shape, initializer):
   """
   with tf.device('/cpu:0'):
     dtype = tf.float16 if FLAGS.use_fp16 else tf.float32
-    var = tf.get_variable(name, shape, initializer=initializer, dtype=dtype)
+    var = tf.get_variable(name, shape, initializer=initializer, dtype=dtype, trainable=True)
   return var
 
 def _variable_with_weight_decay(name, shape, stddev, wd):
@@ -64,9 +64,9 @@ def _variable_with_weight_decay(name, shape, stddev, wd):
       name,
       shape,
       tf.random_normal_initializer(stddev=stddev, dtype=dtype))
-  if wd is not None:
-    weight_decay = tf.multiply(tf.nn.l2_loss(var), wd, name='weight_loss')
-    tf.add_to_collection('losses', weight_decay)
+  # if wd is not None:
+  #   weight_decay = tf.multiply(tf.nn.l2_loss(var), wd, name='weight_loss')
+  #   tf.add_to_collection('losses', weight_decay)
   return var
 
 def getNormalizedLocationWeightsFast(w):
@@ -439,7 +439,18 @@ def inference(images,out_locs,org_gt_coords):
     return res_aux
 
 def train(res_aux):
-  print('do something!')
+  a_optimizer = tf.train.AdamOptimizer()
+  a_optimizer.__init__(
+    learning_rate=0.001,
+    beta1=0.9,
+    beta2=0.999,
+    epsilon=1e-08,
+    use_locking=False,
+    name='Adam')
+  a_optimizer.minimize(res_aux['loss'])
+  # for op in tf.get_default_graph().get_operations():
+    # print str(op.name) 
+    # print str(op) 
 
 def buildModelAndTrain(images,out_locs,org_gt_coords):
   res_aux = inference(images,out_locs,org_gt_coords)
