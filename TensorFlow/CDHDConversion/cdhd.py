@@ -126,6 +126,8 @@ def columnActivation(aug_x, column_num, fwd_dict):
     biases = _variable_on_cpu('biases_col' + str(column_num), [FLAGS.nfc], tf.constant_initializer(1.0))
     a = tf.nn.bias_add(conv, biases)
 
+    print('var name 1: ', biases.name)
+
     # TODO: multiplication here results in NaN error. Find out why?
     # a_with_negatives_set_to_zero = tf.nn.relu(a)
     # a = tf.multiply(a, a_with_negatives_set_to_zero, name='a_with_negatives_set_to_zero_1')
@@ -141,7 +143,8 @@ def columnActivation(aug_x, column_num, fwd_dict):
 
     # TODO: multiplication here results in NaN error. Find out why?
     # a_with_negatives_set_to_zero = tf.nn.relu(a)
-    # a = tf.multiply(a, a_with_negatives_set_to_zero, name='mul_a_with_negatives_set_to_zero_2')      
+    # a = tf.multiply(a, a_with_negatives_set_to_zero, name='mul_a_with_negatives_set_to_zero_2') 
+    print('var name 2: ', biases.name)  
 
   with tf.variable_scope('col' + str(column_num) + '3') as scope:
     kernel = _variable_with_weight_decay('weights_col' + str(column_num),
@@ -151,6 +154,8 @@ def columnActivation(aug_x, column_num, fwd_dict):
     conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
     biases = _variable_on_cpu('biases_col' + str(column_num), [num_out_filters], tf.constant_initializer(1.0))
     a = tf.nn.bias_add(conv, biases)
+
+    print('var name 3: ', biases.name)
 
     #e.g.: a shape: [10, 42, 32, 26], w shape: [10, 42, 32, 1]
     w = a[:, :, :, 0:1]
@@ -439,18 +444,34 @@ def inference(images,out_locs,org_gt_coords):
     return res_aux
 
 def train(res_aux):
-  a_optimizer = tf.train.AdamOptimizer()
-  a_optimizer.__init__(
+  var_list = []
+  var21 = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv6/col21/weights_col2')[0]
+  var22 = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv6/col22/weights_col2')[0]
+  var23 = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv6/col23/weights_col2')[0]
+  bias21 = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv6/col21/biases_col2')[0]
+  bias22 = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv6/col22/biases_col2')[0]
+  bias23 = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv6/col23/biases_col2')[0]
+
+  var_list.append(var21)
+  var_list.append(var22)
+  var_list.append(var23)
+  var_list.append(bias21)
+  var_list.append(bias22)
+  var_list.append(bias23)
+  print('var list type: ', type(var_list))
+
+  a_optimizer_col_3 = tf.train.AdamOptimizer()
+  a_optimizer_col_3.__init__(
     learning_rate=0.001,
     beta1=0.9,
     beta2=0.999,
     epsilon=1e-08,
     use_locking=False,
     name='Adam')
-  a_optimizer.minimize(res_aux['loss'])
+  a_optimizer_col_3.minimize(res_aux['loss'], var_list=var_list)
+
   # for op in tf.get_default_graph().get_operations():
-    # print str(op.name) 
-    # print str(op) 
+  #   print str(op.name) 
 
 def buildModelAndTrain(images,out_locs,org_gt_coords):
   res_aux = inference(images,out_locs,org_gt_coords)
