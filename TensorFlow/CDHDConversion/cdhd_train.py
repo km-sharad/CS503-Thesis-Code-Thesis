@@ -34,14 +34,14 @@ def computeNormalizationParameters():
   for x in stats_sample_indexes:
     anno_file_batch_rows.append(anno_file_lines[x])  
   
-  #mean_pixel = np.zeros(3);
+  # mean_pixel = np.zeros(3);
 
   mean_pixel = np.zeros(3);
   mean_pixel[0] = 118.1365
   mean_pixel[1] = 114.5391
   mean_pixel[2] = 111.4741
 
-  #mean_pixel_sq = np.zeros(3);
+  # mean_pixel_sq = np.zeros(3);
   
   mean_pixel_sq = np.zeros(3);
   mean_pixel_sq[0] = 19350.7498
@@ -51,7 +51,7 @@ def computeNormalizationParameters():
   pixel_covar = np.zeros((3, 3));
 
   '''
-    TODO: It may be possible to use numpy apis to calculater mean and std dev directly
+    TODO: It may be possible to use numpy apis to calculate mean and std dev directly
   '''
 
   '''
@@ -93,9 +93,12 @@ def computeNormalizationParameters():
   mean_pixel_sq_113[0][0][1] = mean_pixel_sq[1]
   mean_pixel_sq_113[0][0][2] = mean_pixel_sq[2]
 
-  std_pixel = np.sqrt(mean_pixel_sq - (mean_pixel ** 2))
-  
+  # std_pixel = np.sqrt(mean_pixel_sq - (mean_pixel ** 2))
+  # stats_dict = {'mean_pixel': mean_pixel, 'std_pixel': std_pixel, 'pixel_covar': pixel_covar}
+
+  std_pixel = np.sqrt(mean_pixel_sq_113 - (mean_pixel_113 ** 2))
   stats_dict = {'mean_pixel': mean_pixel_113, 'std_pixel': std_pixel, 'pixel_covar': pixel_covar}
+  
 
   #store values so that there's no need to compute next time
 
@@ -149,6 +152,8 @@ def train(stats_dict):
     writer = tf.summary.FileWriter('./graphs', sess.graph)
     sess.run(init)
 
+    # Following two lines are for debugging
+    # Use <code> python cdhd_train.py --debug/ <code> command to debug
     # sess = tf_debug.LocalCLIDebugWrapperSession(sess)
     # sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
 

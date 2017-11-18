@@ -115,6 +115,7 @@ def distorted_inputs(stats_dict, batch_size):
   return padded_images, meta_dict
 
 def getImage(meta_rec, stats_dict):
+    # print('*** stats dict: ', stats_dict)
     im_meta_dict = {}
     im_meta_dict['gt_x_coord'] = int(float(meta_rec[0]))
     im_meta_dict['gt_y_coord'] = int(float(meta_rec[1]))
