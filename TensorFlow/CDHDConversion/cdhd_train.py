@@ -153,7 +153,7 @@ def train(stats_dict):
     # sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
 
     # for step in xrange(FLAGS.max_steps):
-    for step in xrange(2):
+    for step in xrange(200):
       start_time = time.time()
       distorted_images, meta = cdhd_input.distorted_inputs(stats_dict, FLAGS.batch_size)
 
