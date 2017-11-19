@@ -104,6 +104,20 @@ def computeNormalizationParameters():
 
   return stats_dict
 
+def getImageMetaRecords():
+  all_train_visible_idx = [x for x in xrange(0,FLAGS.total_visible_training_images)]
+  random.shuffle(all_train_visible_idx)
+  # batch_indexes = all_train_visible_idx[0:batch_size]
+
+  anno_file_batch_rows = []
+  anno_file = open('cdhd_anno_training_data.txt')
+  anno_file_lines = anno_file.readlines()
+
+  for x in all_train_visible_idx:
+    anno_file_batch_rows.append(anno_file_lines[x])
+
+  return anno_file_batch_rows
+
 def train(stats_dict):
   """
   tf.Graph().as_default():
@@ -157,19 +171,25 @@ def train(stats_dict):
     # sess = tf_debug.LocalCLIDebugWrapperSession(sess)
     # sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
 
-    # for step in xrange(FLAGS.max_steps):
-    for step in xrange(200):
+    for epoch in xrange(FLAGS.max_steps):
+    # for epoch in xrange(200):
       start_time = time.time()
-      distorted_images, meta = cdhd_input.distorted_inputs(stats_dict, FLAGS.batch_size)
+      anno_file_batch_rows = getImageMetaRecords() 
+      print('epoch: ', epoch)
 
-      # print('images shape: ',distorted_images.shape)
+      for batch in xrange(len(anno_file_batch_rows)/FLAGS.batch_size):
+        # distorted_images, meta = cdhd_input.distorted_inputs(stats_dict, FLAGS.batch_size)
+        distorted_images, meta = cdhd_input.distorted_inputs(stats_dict, FLAGS.batch_size, \
+                anno_file_batch_rows[batch * FLAGS.batch_size : (batch * FLAGS.batch_size) + FLAGS.batch_size])
 
-      loss = sess.run(logits, {images: distorted_images, out_locs: meta['out_locs'], \
-              org_gt_coords: meta['org_gt_coords']})
+        # print('images shape: ',distorted_images.shape)
 
-      # print('loss shape: ', loss.shape)
+        loss = sess.run(logits, {images: distorted_images, out_locs: meta['out_locs'], \
+                org_gt_coords: meta['org_gt_coords']})
 
-      print(step, np.sum(loss, axis=0)[0,0,0])
+        # print('loss shape: ', loss.shape)
+
+        print(batch, np.sum(loss, axis=0)[0,0,0])
 
       duration = time.time() - start_time
 

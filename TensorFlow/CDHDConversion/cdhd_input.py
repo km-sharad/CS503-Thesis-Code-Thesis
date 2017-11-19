@@ -25,7 +25,7 @@ tf.app.flags.DEFINE_string('start_offset', 16, """start_offset.""")
 tf.app.flags.DEFINE_string('output_stride', 16, """output_stride.""")
 tf.app.flags.DEFINE_string('scaling_factor', round(500/float(3), 4), """scaling_factor""")
 
-def distorted_inputs(stats_dict, batch_size):
+def distorted_inputs(stats_dict, batch_size, anno_file_batch_rows):
   """Construct distorted input for CIFAR training using the Reader ops.
 
   Args:
@@ -36,16 +36,16 @@ def distorted_inputs(stats_dict, batch_size):
     labels: Labels. 1D tensor of [batch_size] size.
   """
 
-  all_train_visible_idx = [x for x in xrange(0,FLAGS.total_visible_training_images)]
-  random.shuffle(all_train_visible_idx)
-  batch_indexes = all_train_visible_idx[0:batch_size]
+  # all_train_visible_idx = [x for x in xrange(0,FLAGS.total_visible_training_images)]
+  # random.shuffle(all_train_visible_idx)
+  # batch_indexes = all_train_visible_idx[0:batch_size]
 
-  anno_file_batch_rows = []
-  anno_file = open('cdhd_anno_training_data.txt')
-  anno_file_lines = anno_file.readlines()
+  # anno_file_batch_rows = []
+  # anno_file = open('cdhd_anno_training_data.txt')
+  # anno_file_lines = anno_file.readlines()
 
-  for x in batch_indexes:
-    anno_file_batch_rows.append(anno_file_lines[x])
+  # for x in batch_indexes:
+  #   anno_file_batch_rows.append(anno_file_lines[x])
 
   images = []
   target_locs = []
