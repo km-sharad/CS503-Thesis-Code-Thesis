@@ -185,8 +185,13 @@ def doForwardPass(x, out_locs, gt_loc):
   fwd_dict['out_locs'] = out_locs
   fwd_dict['offset_grid'] = offset_grid
 
-  assert(out_locs.shape[0] == x.get_shape().as_list()[1] * x.get_shape().as_list()[2]), \
-              "assertion error in forward pass"
+  print('shapes: ', out_locs.shape[0], x.get_shape().as_list()[1], x.get_shape().as_list()[2])
+  # assert(out_locs.shape[0] == x.get_shape().as_list()[1] * x.get_shape().as_list()[2]), \
+  #             "assertion error in forward pass"
+
+  tf.assert_equal(tf.convert_to_tensor(out_locs.shape[0]), \
+                  tf.multiply(tf.convert_to_tensor(tf.shape(x)[1]),\
+                              tf.convert_to_tensor(tf.shape(x)[2])))           
 
   aug_x = [x, None, None, None, 0]
 
@@ -234,10 +239,6 @@ def doForwardPass(x, out_locs, gt_loc):
 
   loss = tf.add(tf.add(target_loss, res_step['x'][4]),
                 tf.multiply(offs_loss, FLAGS.offset_pred_weight))
-
-  print('target loss: ', target_loss.get_shape().as_list())
-  print('res_step[x][4] shape:', res_step['x'][4].get_shape().as_list())
-  print('offs_loss shape: ', offs_loss.get_shape().as_list())
   
   pred = res_step['x'][1]
 

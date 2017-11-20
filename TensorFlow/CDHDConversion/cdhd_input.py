@@ -36,26 +36,13 @@ def distorted_inputs(stats_dict, batch_size, anno_file_batch_rows):
     labels: Labels. 1D tensor of [batch_size] size.
   """
 
-  # all_train_visible_idx = [x for x in xrange(0,FLAGS.total_visible_training_images)]
-  # random.shuffle(all_train_visible_idx)
-  # batch_indexes = all_train_visible_idx[0:batch_size]
-
-  # anno_file_batch_rows = []
-  # anno_file = open('cdhd_anno_training_data.txt')
-  # anno_file_lines = anno_file.readlines()
-
-  # for x in batch_indexes:
-  #   anno_file_batch_rows.append(anno_file_lines[x])
-
   images = []
   target_locs = []
   infos = []
 
   for image_idx in xrange(batch_size):
-  # for image_idx in xrange(2):
     #read and convert images into numpy array
     meta_rec = anno_file_batch_rows[image_idx].split('|')
-    # meta_rec = anno_file_lines[image_idx].split('|')
     [image, target_loc, info] = getImage(meta_rec, stats_dict)
 
     images.append(image)
@@ -92,9 +79,9 @@ def distorted_inputs(stats_dict, batch_size, anno_file_batch_rows):
   aug_target_loc = aug_target_loc ./ opts.scaling_factor;
   '''
 
-  out_locs = np.divide(out_locs, FLAGS.scaling_factor)
-  org_gt_coords = np.divide(org_gt_coords, FLAGS.scaling_factor)
-  aug_target_loc = np.divide(aug_target_loc, FLAGS.scaling_factor)
+  out_locs = np.round(np.divide(out_locs, FLAGS.scaling_factor),4)
+  org_gt_coords = np.round(np.divide(org_gt_coords, FLAGS.scaling_factor),4)
+  aug_target_loc = np.round(np.divide(aug_target_loc, FLAGS.scaling_factor),4)
 
   meta_dict = {}
   meta_dict['margins'] = []
@@ -115,7 +102,6 @@ def distorted_inputs(stats_dict, batch_size, anno_file_batch_rows):
   return padded_images, meta_dict
 
 def getImage(meta_rec, stats_dict):
-    # print('*** stats dict: ', stats_dict)
     im_meta_dict = {}
     im_meta_dict['gt_x_coord'] = int(float(meta_rec[0]))
     im_meta_dict['gt_y_coord'] = int(float(meta_rec[1]))
@@ -123,6 +109,11 @@ def getImage(meta_rec, stats_dict):
     im_meta_dict['bbox'] = [int(i) for i in meta_rec[8][0:len(meta_rec[8]) - 2].split(',')]    
 
     image = Image.open(FLAGS.data_dir + meta_rec[2])
+
+    # print('image name: ', meta_rec[2])
+    # print('im_meta_dict[img_size]: ', im_meta_dict['img_size'][0], im_meta_dict['img_size'][1])
+    # print('image size: ', image.size[0], image.size[1])
+    # print('co-ords: x-y', im_meta_dict['gt_x_coord'], im_meta_dict['gt_y_coord'])
 
     try:
       im = np.array(image.getdata()).reshape(image.size[0], image.size[1], 3)
@@ -135,6 +126,7 @@ def getImage(meta_rec, stats_dict):
     scale = round(FLAGS.max_im_side/float(np.amax(im.shape)),4)    
 
     [im, target_loc, aug_scale] = getAugmentedImage(im, im_meta_dict)
+
     aug_target_loc = target_loc
     im_org_scaled = imresize(im, scale,interp='bilinear')
     im = im_org_scaled
@@ -185,9 +177,6 @@ def getImage(meta_rec, stats_dict):
     #info.im_org_scaled = ?
     info['padding'] = padding
 
-    #tensor_images = tf.convert_to_tensor(im_np_arr)
-    #print tensor_images
-
     return [im, target_loc, info]
 
 def getAugmentedImage(im, im_meta_dict):
@@ -197,6 +186,7 @@ def getAugmentedImage(im, im_meta_dict):
   #add random scale jitter
   scale_range = [round(log(0.6),4), round(log(1.25),4)]
   scale = round(exp(random.uniform(0, 1) * (scale_range[1] - scale_range[0]) + scale_range[0]),2)
+
   im = imresize(im, scale,interp='bilinear')
   targets_np = np.zeros(2)
   targets_np[0] = int(round(targets[0] * scale,0))

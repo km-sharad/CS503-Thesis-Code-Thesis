@@ -136,6 +136,7 @@ def train(stats_dict):
     sess = tf.Session()
     sess.run(init)
 
+    # for step in xrange(5):
     # with tf.Session() as sess:
     sess.run(logits) #feed_dict, key = node, value = numpy array
 
