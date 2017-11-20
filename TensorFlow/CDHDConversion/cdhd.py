@@ -294,9 +294,6 @@ def doForwardPass(x, out_locs, gt_loc):
   fwd_dict['out_locs'] = out_locs
   fwd_dict['offset_grid'] = offset_grid
 
-  x1 = x.get_shape().as_list()[1]
-  x2 = x.get_shape().as_list()[2]
-
   # pdb.set_trace()
 
   tf.assert_equal(tf.convert_to_tensor(tf.shape(out_locs)[0]), \
