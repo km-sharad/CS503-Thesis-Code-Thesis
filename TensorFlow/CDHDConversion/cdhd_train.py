@@ -161,41 +161,71 @@ def train(stats_dict):
     #   sess.run(logits) #feed_dict, key = node, value = numpy array
     #   print('end')
 
-    init = tf.global_variables_initializer()
-    sess = tf.Session()
-    writer = tf.summary.FileWriter('./graphs', sess.graph)
-    sess.run(init)
-
-    # Following two lines are for debugging
-    # Use <code> python cdhd_train.py --debug/ <code> command to debug
-    # sess = tf_debug.LocalCLIDebugWrapperSession(sess)
-    # sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
-
-    for epoch in xrange(FLAGS.max_steps):
-    # for epoch in xrange(200):
-      start_time = time.time()
-      anno_file_batch_rows = getImageMetaRecords() 
-      print('epoch: ', epoch)
-
-      for batch in xrange(len(anno_file_batch_rows)/FLAGS.batch_size):
-        # distorted_images, meta = cdhd_input.distorted_inputs(stats_dict, FLAGS.batch_size)
-        distorted_images, meta = cdhd_input.distorted_inputs(stats_dict, FLAGS.batch_size, \
-                anno_file_batch_rows[batch * FLAGS.batch_size : (batch * FLAGS.batch_size) + FLAGS.batch_size])
-
-        # print('images shape: ',distorted_images.shape)
-
-        loss = sess.run(logits, {images: distorted_images, out_locs: meta['out_locs'], \
-                org_gt_coords: meta['org_gt_coords']})
-
-        # print('loss shape: ', loss.shape)
-
-        print(batch, np.sum(loss, axis=0)[0,0,0])
-
-      duration = time.time() - start_time
-
-      # print('duration: ', duration)
     
-    writer.close()
+    with tf.Session() as sess:
+      init = tf.global_variables_initializer()
+      # sess = tf.Session()
+      writer = tf.summary.FileWriter('./graphs', sess.graph)
+      sess.run(init)
+
+      # Following two lines are for debugging
+      # Use <code> python cdhd_train.py --debug </code> command to debug
+      # sess = tf_debug.LocalCLIDebugWrapperSession(sess)
+      # sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
+
+      for epoch in xrange(FLAGS.max_steps):
+      # for epoch in xrange(200):
+        start_time = time.time()
+        anno_file_batch_rows = getImageMetaRecords() 
+        print('epoch: ', epoch)
+
+        for batch in xrange(len(anno_file_batch_rows)/FLAGS.batch_size):
+          # distorted_images, meta = cdhd_input.distorted_inputs(stats_dict, FLAGS.batch_size)
+          distorted_images, meta = cdhd_input.distorted_inputs(stats_dict, FLAGS.batch_size, \
+                  anno_file_batch_rows[batch * FLAGS.batch_size : (batch * FLAGS.batch_size) + FLAGS.batch_size])
+
+          # print('images shape: ',distorted_images.shape)
+
+          ret_dict = sess.run(logits, {images: distorted_images, out_locs: meta['out_locs'], \
+                  org_gt_coords: meta['org_gt_coords']})
+
+          # print('loss shape: ', loss.shape)
+
+          # print(batch, np.sum(loss, axis=0)[0,0,0])
+          print(batch, np.sum(ret_dict['loss'], axis=0)[0,0,0])
+
+          print((((ret_dict['grad_var'])[0])[0])[2][2][62][103])
+          print((((ret_dict['grad_var'])[0])[0])[4][3][83][107])
+          print((((ret_dict['grad_var'])[1])[0])[2][2][62][103])
+          print((((ret_dict['grad_var'])[1])[0])[4][3][83][107])
+          print((((ret_dict['grad_var'])[2])[0])[2][2][62][10])
+          print((((ret_dict['grad_var'])[2])[0])[4][3][83][17])
+
+          print('w1', (ret_dict['var_list_2'][0])[2][2][62][103]) 
+          print('w2', (ret_dict['var_list_2'][0])[4][3][83][107]) 
+          print('w3', (ret_dict['var_list_2'][1])[2][2][62][103]) 
+          print('w4', (ret_dict['var_list_2'][1])[4][3][83][107]) 
+          print('w3', (ret_dict['var_list_2'][2])[2][2][62][10]) 
+          print('w4', (ret_dict['var_list_2'][2])[4][3][83][17])           
+          print('b1', (ret_dict['var_list_2'][3])[103]) 
+          print('b2', (ret_dict['var_list_2'][3])[107])           
+          print('b1', (ret_dict['var_list_2'][4])[103]) 
+          print('b2', (ret_dict['var_list_2'][4])[107])           
+          print('b1', (ret_dict['var_list_2'][5])[10]) 
+          print('b2', (ret_dict['var_list_2'][5])[17])           
+
+          print('weights_col2-0: ', ret_dict['weights_col2-0'].shape)
+
+          # for elem in ret_dict['var_list_2']:
+          #   print('shape: ', elem.shape)
+          
+          # print('====================================')
+
+        duration = time.time() - start_time
+
+        # print('duration: ', duration)
+      
+      writer.close()
 
 def main(argv=None):  # pylint: disable=unused-argument
   stats_dict = computeNormalizationParameters()

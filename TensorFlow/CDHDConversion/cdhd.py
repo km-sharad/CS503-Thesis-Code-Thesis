@@ -42,6 +42,7 @@ def _variable_on_cpu(name, shape, initializer):
   with tf.device('/cpu:0'):
     dtype = tf.float16 if FLAGS.use_fp16 else tf.float32
     var = tf.get_variable(name, shape, initializer=initializer, dtype=dtype, trainable=True)
+    tf.add_to_collection(name, var)
   return var
 
 def _variable_with_weight_decay(name, shape, stddev, wd):
@@ -126,10 +127,7 @@ def columnActivation(aug_x, column_num, fwd_dict):
     conv = tf.nn.conv2d(x, kernel, [1, 1, 1, 1], padding='SAME')
     biases = _variable_on_cpu('biases_col' + str(column_num), [FLAGS.nfc], tf.constant_initializer(1.0))
     a = tf.nn.bias_add(conv, biases)
-
-    # TODO: multiplication here results in NaN error. Find out why?
-    # a_with_negatives_set_to_zero = tf.nn.relu(a)
-    # a = tf.multiply(a, a_with_negatives_set_to_zero, name='a_with_negatives_set_to_zero_1')
+    a = tf.nn.relu(a, name=scope.name)
 
   with tf.variable_scope('col' + str(column_num) + '2') as scope:
     kernel = _variable_with_weight_decay('weights_col' + str(column_num),
@@ -139,10 +137,7 @@ def columnActivation(aug_x, column_num, fwd_dict):
     conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
     biases = _variable_on_cpu('biases_col' + str(column_num), [FLAGS.nfc], tf.constant_initializer(1.0))
     a = tf.nn.bias_add(conv, biases)
-
-    # TODO: multiplication here results in NaN error. Find out why?
-    # a_with_negatives_set_to_zero = tf.nn.relu(a)
-    # a = tf.multiply(a, a_with_negatives_set_to_zero, name='mul_a_with_negatives_set_to_zero_2') 
+    a = tf.nn.relu(a, name=scope.name)
 
   with tf.variable_scope('col' + str(column_num) + '3') as scope:
     kernel = _variable_with_weight_decay('weights_col' + str(column_num),
@@ -276,8 +271,8 @@ def doForwardPass(x, out_locs, gt_loc):
 
   n = tf.shape(x)[1] * tf.shape(x)[2]
   
-  xa = tf.cast(tf.divide(tf.ones([x.get_shape().as_list()[0], \
-                tf.shape(x)[1],tf.shape(x)[2],1], tf.int32), n), tf.float32)
+  xa = tf.multiply(tf.cast(tf.divide(tf.ones([x.get_shape().as_list()[0], \
+                tf.shape(x)[1],tf.shape(x)[2],1], tf.int32), n), tf.float32), FLAGS.pred_factor)
 
   #If above approach does not work, try following
   #TODO: feed populated xa using formula:
@@ -442,123 +437,110 @@ def inference(images,out_locs,org_gt_coords):
     res_aux = doForwardPass(conv6, out_locs, org_gt_coords)
     return res_aux
 
-def trainCol(colNum):
-  var_list = []
-  var1 = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv6/col' + str(colNum) + '1/weights_col' + str(colNum))[0]
-  var2 = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv6/col' + str(colNum) + '2/weights_col' + str(colNum))[0]
-  var3 = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv6/col' + str(colNum) + '3/weights_col' + str(colNum))[0]
-  bias1 = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv6/col' + str(colNum) + '1/biases_col' + str(colNum))[0]
-  bias2 = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv6/col' + str(colNum) + '2/biases_col' + str(colNum))[0]
-  bias3 = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv6/col' + str(colNum) + '3/biases_col' + str(colNum))[0]
-
-  var_list.append(var1)
-  var_list.append(var2)
-  var_list.append(var3)
-  var_list.append(bias1)
-  var_list.append(bias2)
-  var_list.append(bias3)
-
-  return var_list
-
 def train(res_aux):
 
+  print(tf.get_collection('weights_col2')[0].get_shape().as_list())
+
+  ret_dict = {}
+  # ret_dict['weights_col2-0'] = tf.get_collection('weights_col2')[0]
+  # ret_dict['var_list_2'] = tf.get_collection('weights_col2')
+
+
+  # # col_2_loss = res_aux['loss']
+
+  # col_2_loss = np.sum(res_aux['loss'], axis=0)[0,0,0]
+
+  # a_optimizer_col_2 = tf.train.GradientDescentOptimizer(learning_rate=0.001)
+  # grad_var = a_optimizer_col_2.compute_gradients(col_2_loss, var_list=tf.get_collection('weights_col2'))
+  # ret_dict['grad_var'] = grad_var
+  # a_optimizer_col_2.apply_gradients(grad_var)
+
+
+  # a_optimizer_col_2.minimize(col_2_loss, var_list=tf.get_collection(tf.GraphKeys.VARIABLES))
+
   col_2_loss = res_aux['loss']
-  # a_optimizer_col_2 = tf.train.AdamOptimizer()
+  a_optimizer_col_2 = tf.train.AdamOptimizer()
   # a_optimizer_col_2.__init__(
-  #   learning_rate=0.001,
+  #   learning_rate=0.00001,
   #   beta1=0.9,
   #   beta2=0.999,
   #   epsilon=1e-08,
   #   use_locking=False,
   #   name='Adam_2')
 
-  a_optimizer_col_2 = tf.train.GradientDescentOptimizer(learning_rate=0.001) 
-  # a_optimizer_col_2.__init__(learning_rate=0.1, use_locking=False, name='gd2')
+  a_optimizer_col_2 = tf.train.GradientDescentOptimizer(learning_rate=0.00001) 
+  # a_optimizer_col_2 = tf.train.MomentumOptimizer(learning_rate=0.00001, momentum=0.0003) 
 
-  var_list_2 = trainCol(2)
-  var_list_2 = var_list_2 + trainCol(1) + trainCol(0)
+  var_list_2 = []
+  var_list_2 = var_list_2 + tf.get_collection('weights_col2')
+  var_list_2 = var_list_2 + tf.get_collection('biases_col2')
+  var_list_2 = var_list_2 + tf.get_collection('weights') 
+  var_list_2 = var_list_2 + tf.get_collection('biases')
 
-  var_list_2.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv6/weights')[0])
-  var_list_2.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv5/weights')[0])
-  var_list_2.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv4/weights')[0])
-  var_list_2.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv3/weights')[0])
-  var_list_2.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv2/weights')[0])
-  var_list_2.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv1/weights')[0])  
-  var_list_2.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv6/biases')[0])  
-  var_list_2.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv5/biases')[0])  
-  var_list_2.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv4/biases')[0])  
-  var_list_2.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv3/biases')[0])  
-  var_list_2.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv2/biases')[0])  
-  var_list_2.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv1/biases')[0])  
-
-  a_optimizer_col_2.minimize(col_2_loss, var_list=var_list_2)
+  grad_var_2 = a_optimizer_col_2.compute_gradients(col_2_loss, var_list=tf.get_collection('weights_col2'))
+  ret_dict['grad_var'] = grad_var_2
+  a_optimizer_col_2.apply_gradients(grad_var_2)
+  # a_optimizer_col_2.minimize(col_2_loss, var_list=var_list_2)
 
   col_1_loss = (res_aux['res_steps'][2])['x'][4]
-  # a_optimizer_col_1 = tf.train.AdamOptimizer()
+  a_optimizer_col_1 = tf.train.AdamOptimizer()
   # a_optimizer_col_1.__init__(
-  #   learning_rate=0.001,
+  #   learning_rate=0.00001,
   #   beta1=0.9,
   #   beta2=0.999,
   #   epsilon=1e-08,
   #   use_locking=False,
   #   name='Adam_1')
 
-  a_optimizer_col_1 = tf.train.GradientDescentOptimizer(learning_rate=0.001)
-  # a_optimizer_col_1.__init__(learning_rate=0.1, use_locking=False, name='gd1')  
+  a_optimizer_col_1 = tf.train.GradientDescentOptimizer(learning_rate=0.00001)
+  # a_optimizer_col_1 = tf.train.MomentumOptimizer(learning_rate=0.00001, momentum=0.0003)  
 
-  var_list_1=trainCol(1)
-  # var_list_1.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv6/weights')[0])
-  # var_list_1.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv5/weights')[0])
-  # var_list_1.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv4/weights')[0])
-  # var_list_1.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv3/weights')[0])
-  # var_list_1.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv2/weights')[0])
-  # var_list_1.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv1/weights')[0])  
-  # var_list_1.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv6/biases')[0])  
-  # var_list_1.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv5/biases')[0])  
-  # var_list_1.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv4/biases')[0])  
-  # var_list_1.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv3/biases')[0])  
-  # var_list_1.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv2/biases')[0])  
-  # var_list_1.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv1/biases')[0])  
+  var_list_1 = []
+  var_list_1 = var_list_1 + tf.get_collection('weights_col1')
+  var_list_1 = var_list_1 + tf.get_collection('biases_col1')
+  var_list_1 = var_list_1 + tf.get_collection('weights') 
+  var_list_1 = var_list_1 + tf.get_collection('biases')
 
-  # a_optimizer_col_1.minimize(col_1_loss, var_list=trainCol(1))
-  '''a_optimizer_col_1.minimize(col_1_loss, var_list=var_list_1)'''
+  grad_var_1 = a_optimizer_col_1.compute_gradients(col_1_loss, var_list=tf.get_collection('weights_col1'))
+  a_optimizer_col_1.apply_gradients(grad_var_1)  
+  # a_optimizer_col_1.minimize(col_1_loss, var_list=var_list_1)
 
-  col_0_and_layers_loss = (res_aux['res_steps'][1])['x'][4]
-  # a_optimizer_col_0 = tf.train.AdamOptimizer()
+  col_0_loss = (res_aux['res_steps'][1])['x'][4]
+  a_optimizer_col_0 = tf.train.AdamOptimizer()
   # a_optimizer_col_0.__init__(
-  #   learning_rate=0.001,
+  #   learning_rate=0.00001,
   #   beta1=0.9,
   #   beta2=0.999,
   #   epsilon=1e-08,
   #   use_locking=False,
   #   name='Adam_0')
 
-  a_optimizer_col_0 = tf.train.GradientDescentOptimizer(learning_rate=0.001) 
-  # a_optimizer_col_0.__init__(learning_rate=0.1, use_locking=False, name='gd0')  
+  a_optimizer_col_0 = tf.train.GradientDescentOptimizer(learning_rate=0.00001) 
+  # a_optimizer_col_0 = tf.train.MomentumOptimizer(learning_rate=0.00001, momentum=0.0003) 
   
-  var_list_0=trainCol(0)
-  var_list_0.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv6/weights')[0])
-  var_list_0.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv5/weights')[0])
-  var_list_0.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv4/weights')[0])
-  var_list_0.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv3/weights')[0])
-  var_list_0.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv2/weights')[0])
-  var_list_0.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv1/weights')[0])  
-  var_list_0.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv6/biases')[0])  
-  var_list_0.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv5/biases')[0])  
-  var_list_0.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv4/biases')[0])  
-  var_list_0.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv3/biases')[0])  
-  var_list_0.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv2/biases')[0])  
-  var_list_0.append(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'conv1/biases')[0])  
+  var_list_0 = []
+  var_list_0 = var_list_0 + tf.get_collection('weights_col0')
+  var_list_0 = var_list_0 + tf.get_collection('biases_col0')
+  var_list_0 = var_list_0 + tf.get_collection('weights') 
+  var_list_0 = var_list_0 + tf.get_collection('biases')
 
-  ''' a_optimizer_col_0.minimize(col_0_and_layers_loss, var_list=var_list_0)  '''
+  grad_var_0 = a_optimizer_col_0.compute_gradients(col_0_loss, var_list=tf.get_collection('weights_col0'))
+  a_optimizer_col_0.apply_gradients(grad_var_0)  
+  # a_optimizer_col_0.minimize(col_0_loss, var_list=var_list_0)
+  
+  ret_dict['weights_col2-0'] = tf.get_collection('weights_col2')[0]
+  ret_dict['var_list_2'] = var_list_2
+
+  return ret_dict
 
   # for op in tf.get_default_graph().get_operations():
   #   print str(op.name) 
 
 def buildModelAndTrain(images,out_locs,org_gt_coords):
   res_aux = inference(images,out_locs,org_gt_coords)
-  train(res_aux)
-  return res_aux['loss']
+  ret_dict = train(res_aux)
+  ret_dict['loss'] = res_aux['loss']
+  return ret_dict
 
 
 
