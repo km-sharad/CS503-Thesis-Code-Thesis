@@ -468,20 +468,21 @@ def train(res_aux):
   #   use_locking=False,
   #   name='Adam_2')
 
-  a_optimizer_col_2 = tf.train.GradientDescentOptimizer(learning_rate=0.00001) 
+  a_optimizer_col_2 = tf.train.GradientDescentOptimizer(learning_rate=0.1) 
   # a_optimizer_col_2 = tf.train.MomentumOptimizer(learning_rate=0.00001, momentum=0.0003) 
 
   var_list_2 = []
   var_list_2 = var_list_2 + tf.get_collection('weights_col2')
   var_list_2 = var_list_2 + tf.get_collection('biases_col2')
-  var_list_2 = var_list_2 + tf.get_collection('weights') 
-  var_list_2 = var_list_2 + tf.get_collection('biases')
+  # var_list_2 = var_list_2 + tf.get_collection('weights') 
+  # var_list_2 = var_list_2 + tf.get_collection('biases')
 
   grad_var_2 = a_optimizer_col_2.compute_gradients(col_2_loss, var_list=tf.get_collection('weights_col2'))
   ret_dict['grad_var'] = grad_var_2
   a_optimizer_col_2.apply_gradients(grad_var_2)
   # a_optimizer_col_2.minimize(col_2_loss, var_list=var_list_2)
 
+  '''
   col_1_loss = (res_aux['res_steps'][2])['x'][4]
   a_optimizer_col_1 = tf.train.AdamOptimizer()
   # a_optimizer_col_1.__init__(
@@ -492,7 +493,7 @@ def train(res_aux):
   #   use_locking=False,
   #   name='Adam_1')
 
-  a_optimizer_col_1 = tf.train.GradientDescentOptimizer(learning_rate=0.00001)
+  a_optimizer_col_1 = tf.train.GradientDescentOptimizer(learning_rate=0.1)
   # a_optimizer_col_1 = tf.train.MomentumOptimizer(learning_rate=0.00001, momentum=0.0003)  
 
   var_list_1 = []
@@ -515,7 +516,7 @@ def train(res_aux):
   #   use_locking=False,
   #   name='Adam_0')
 
-  a_optimizer_col_0 = tf.train.GradientDescentOptimizer(learning_rate=0.00001) 
+  a_optimizer_col_0 = tf.train.GradientDescentOptimizer(learning_rate=0.1) 
   # a_optimizer_col_0 = tf.train.MomentumOptimizer(learning_rate=0.00001, momentum=0.0003) 
   
   var_list_0 = []
@@ -527,7 +528,7 @@ def train(res_aux):
   grad_var_0 = a_optimizer_col_0.compute_gradients(col_0_loss, var_list=tf.get_collection('weights_col0'))
   a_optimizer_col_0.apply_gradients(grad_var_0)  
   # a_optimizer_col_0.minimize(col_0_loss, var_list=var_list_0)
-  
+  '''
   ret_dict['weights_col2-0'] = tf.get_collection('weights_col2')[0]
   ret_dict['var_list_2'] = var_list_2
 

@@ -194,12 +194,17 @@ def train(stats_dict):
           # print(batch, np.sum(loss, axis=0)[0,0,0])
           print(batch, np.sum(ret_dict['loss'], axis=0)[0,0,0])
 
-          print((((ret_dict['grad_var'])[0])[0])[2][2][62][103])
-          print((((ret_dict['grad_var'])[0])[0])[4][3][83][107])
-          print((((ret_dict['grad_var'])[1])[0])[2][2][62][103])
-          print((((ret_dict['grad_var'])[1])[0])[4][3][83][107])
-          print((((ret_dict['grad_var'])[2])[0])[2][2][62][10])
-          print((((ret_dict['grad_var'])[2])[0])[4][3][83][17])
+          print((((ret_dict['grad_var'])[0])[0]))
+
+          assert not np.isnan((((ret_dict['grad_var'])[0])[0]).all()), '*** NaN gradient'
+          assert not np.isinf((((ret_dict['grad_var'])[0])[0]).all()), '*** INF gradient'
+
+          # print((((ret_dict['grad_var'])[0])[0])[2][2][62][103])
+          # print((((ret_dict['grad_var'])[0])[0])[4][3][83][107])
+          # print((((ret_dict['grad_var'])[1])[0])[2][2][62][103])
+          # print((((ret_dict['grad_var'])[1])[0])[4][3][83][107])
+          # print((((ret_dict['grad_var'])[2])[0])[2][2][62][10])
+          # print((((ret_dict['grad_var'])[2])[0])[4][3][83][17])
 
           print('w1', (ret_dict['var_list_2'][0])[2][2][62][103]) 
           print('w2', (ret_dict['var_list_2'][0])[4][3][83][107]) 
