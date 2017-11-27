@@ -317,7 +317,7 @@ def doForwardPass(x, out_locs, gt_loc):
                     tf.shape(x_sans_xa)[2], 1])
 
     #combining activation of sixth convolution with output of previous layer
-    #TODO: not required for last column
+    #TODO: may not be required for last column
     aug_x[0] = tf.concat(3, [out_x[0],x_sans_xa], name='concat_x_and_a_sans_xa') #xx
 
     aug_x[1] = out_x[1]     #pc + poc
@@ -435,111 +435,65 @@ def inference(images,out_locs,org_gt_coords):
     conv6 = tf.nn.relu(pre_activation, name=scope.name)  
 
     res_aux = doForwardPass(conv6, out_locs, org_gt_coords)
-    return res_aux
+    return res_aux, conv6
 
-def train(res_aux):
+def residue2gradientSL1(residue, transition_dist):
+  clipped_tensor = tf.clip_by_value(residue, -transition_dist, transition_dist)
+  return clipped_tensor
 
-  print(tf.get_collection('weights_col2')[0].get_shape().as_list())
+def getOffsetNWGradient(offs_residue, transition_dist):
+  offs_nw_gradient = tf.abs(offs_residue);
+  comparator_ge = tf.greater_equal(offs_nw_gradient, [transition_dist]) 
+  offs_nw_gradient = tf.where(comparator_ge,
+              tf.divide(tf.subtract(offs_nw_gradient, transition_dist),2),
+              tf.divide(tf.square(offs_nw_gradient),2))
+  offs_nw_gradient = tf.reduce_sum(offs_nw_gradient, axis=2)
+  offs_nw_gradient = tf.reshape(offs_nw_gradient, [tf.shape(offs_nw_gradient)[0], tf.shape(offs_nw_gradient)[1],1,1])
+  return offs_nw_gradient
 
+def train(res_aux, x):
   ret_dict = {}
-  # ret_dict['weights_col2-0'] = tf.get_collection('weights_col2')[0]
-  # ret_dict['var_list_2'] = tf.get_collection('weights_col2')
+
+  target_residue  = res_aux['target_residue']
+  offs_residue = res_aux['offs_residue']
+  offs_loss = res_aux['offs_loss']
+  res_steps = res_aux['res_steps']
+
+  res_dzdx = tf.zeros_like(x)
+
+  target_grad = residue2gradientSL1(target_residue, FLAGS.transition_dist)
+  offs_gradient = residue2gradientSL1(offs_residue, FLAGS.transition_dist);
+
+  grad = []
+  grad.append(tf.zeros_like(res_aux['res_steps'][FLAGS.steps - 1]['x'][0]))
+  grad.append(target_grad)
+  grad.append(tf.multiply(offs_gradient, res_aux['res_steps'][2]['x'][3]))
+  grad.append(tf.multiply(getOffsetNWGradient(offs_residue, FLAGS.transition_dist), FLAGS.offset_pred_weight))
+  grad.append(0) 
+
+  back_res = []
+
+  # Append the features with extra channels
+  n = tf.shape(x)[1] * tf.shape(x)[2]
+  xa = tf.multiply(tf.cast(tf.divide(tf.ones([x.get_shape().as_list()[0], \
+                tf.shape(x)[1],tf.shape(x)[2],1], tf.int32), n), tf.float32), FLAGS.pred_factor)
+  x_in = tf.concat(3, [xa,x])    #IN NEWER VERSION OF TF CORRECT COMMAND IS: tf.concat([xa,x], 3)
+  aug_x_in = [x_in, None, None, None, 0]
+
+  next_offs_loss = offs_loss;
 
 
-  # # col_2_loss = res_aux['loss']
-
-  # col_2_loss = np.sum(res_aux['loss'], axis=0)[0,0,0]
-
-  # a_optimizer_col_2 = tf.train.GradientDescentOptimizer(learning_rate=0.001)
-  # grad_var = a_optimizer_col_2.compute_gradients(col_2_loss, var_list=tf.get_collection('weights_col2'))
-  # ret_dict['grad_var'] = grad_var
-  # a_optimizer_col_2.apply_gradients(grad_var)
-
-
-  # a_optimizer_col_2.minimize(col_2_loss, var_list=tf.get_collection(tf.GraphKeys.VARIABLES))
-
-  col_2_loss = res_aux['loss']
-  a_optimizer_col_2 = tf.train.AdamOptimizer()
-  # a_optimizer_col_2.__init__(
-  #   learning_rate=0.00001,
-  #   beta1=0.9,
-  #   beta2=0.999,
-  #   epsilon=1e-08,
-  #   use_locking=False,
-  #   name='Adam_2')
-
-  a_optimizer_col_2 = tf.train.GradientDescentOptimizer(learning_rate=0.1) 
-  # a_optimizer_col_2 = tf.train.MomentumOptimizer(learning_rate=0.00001, momentum=0.0003) 
-
-  var_list_2 = []
-  var_list_2 = var_list_2 + tf.get_collection('weights_col2')
-  var_list_2 = var_list_2 + tf.get_collection('biases_col2')
-  # var_list_2 = var_list_2 + tf.get_collection('weights') 
-  # var_list_2 = var_list_2 + tf.get_collection('biases')
-
-  grad_var_2 = a_optimizer_col_2.compute_gradients(col_2_loss, var_list=tf.get_collection('weights_col2'))
-  ret_dict['grad_var'] = grad_var_2
-  a_optimizer_col_2.apply_gradients(grad_var_2)
-  # a_optimizer_col_2.minimize(col_2_loss, var_list=var_list_2)
-
-  '''
-  col_1_loss = (res_aux['res_steps'][2])['x'][4]
-  a_optimizer_col_1 = tf.train.AdamOptimizer()
-  # a_optimizer_col_1.__init__(
-  #   learning_rate=0.00001,
-  #   beta1=0.9,
-  #   beta2=0.999,
-  #   epsilon=1e-08,
-  #   use_locking=False,
-  #   name='Adam_1')
-
-  a_optimizer_col_1 = tf.train.GradientDescentOptimizer(learning_rate=0.1)
-  # a_optimizer_col_1 = tf.train.MomentumOptimizer(learning_rate=0.00001, momentum=0.0003)  
-
-  var_list_1 = []
-  var_list_1 = var_list_1 + tf.get_collection('weights_col1')
-  var_list_1 = var_list_1 + tf.get_collection('biases_col1')
-  var_list_1 = var_list_1 + tf.get_collection('weights') 
-  var_list_1 = var_list_1 + tf.get_collection('biases')
-
-  grad_var_1 = a_optimizer_col_1.compute_gradients(col_1_loss, var_list=tf.get_collection('weights_col1'))
-  a_optimizer_col_1.apply_gradients(grad_var_1)  
-  # a_optimizer_col_1.minimize(col_1_loss, var_list=var_list_1)
-
-  col_0_loss = (res_aux['res_steps'][1])['x'][4]
-  a_optimizer_col_0 = tf.train.AdamOptimizer()
-  # a_optimizer_col_0.__init__(
-  #   learning_rate=0.00001,
-  #   beta1=0.9,
-  #   beta2=0.999,
-  #   epsilon=1e-08,
-  #   use_locking=False,
-  #   name='Adam_0')
-
-  a_optimizer_col_0 = tf.train.GradientDescentOptimizer(learning_rate=0.1) 
-  # a_optimizer_col_0 = tf.train.MomentumOptimizer(learning_rate=0.00001, momentum=0.0003) 
-  
-  var_list_0 = []
-  var_list_0 = var_list_0 + tf.get_collection('weights_col0')
-  var_list_0 = var_list_0 + tf.get_collection('biases_col0')
-  var_list_0 = var_list_0 + tf.get_collection('weights') 
-  var_list_0 = var_list_0 + tf.get_collection('biases')
-
-  grad_var_0 = a_optimizer_col_0.compute_gradients(col_0_loss, var_list=tf.get_collection('weights_col0'))
-  a_optimizer_col_0.apply_gradients(grad_var_0)  
-  # a_optimizer_col_0.minimize(col_0_loss, var_list=var_list_0)
-  '''
-  ret_dict['weights_col2-0'] = tf.get_collection('weights_col2')[0]
-  ret_dict['var_list_2'] = var_list_2
-
+  ret_dict['nw_offs_residue'] = getOffsetNWGradient(offs_residue, FLAGS.transition_dist)
+  ret_dict['offs_residue'] = offs_residue
+  ret_dict['offs_gradient'] = offs_gradient
   return ret_dict
 
   # for op in tf.get_default_graph().get_operations():
   #   print str(op.name) 
 
 def buildModelAndTrain(images,out_locs,org_gt_coords):
-  res_aux = inference(images,out_locs,org_gt_coords)
-  ret_dict = train(res_aux)
+  res_aux, x = inference(images,out_locs,org_gt_coords)
+  ret_dict = train(res_aux, x)
   ret_dict['loss'] = res_aux['loss']
   return ret_dict
 

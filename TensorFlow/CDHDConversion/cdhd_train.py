@@ -189,46 +189,13 @@ def train(stats_dict):
           ret_dict = sess.run(logits, {images: distorted_images, out_locs: meta['out_locs'], \
                   org_gt_coords: meta['org_gt_coords']})
 
-          # print('loss shape: ', loss.shape)
-
-          # print(batch, np.sum(loss, axis=0)[0,0,0])
-          print(batch, np.sum(ret_dict['loss'], axis=0)[0,0,0])
-
-          print((((ret_dict['grad_var'])[0])[0]))
-
-          assert not np.isnan((((ret_dict['grad_var'])[0])[0]).all()), '*** NaN gradient'
-          assert not np.isinf((((ret_dict['grad_var'])[0])[0]).all()), '*** INF gradient'
-
-          # print((((ret_dict['grad_var'])[0])[0])[2][2][62][103])
-          # print((((ret_dict['grad_var'])[0])[0])[4][3][83][107])
-          # print((((ret_dict['grad_var'])[1])[0])[2][2][62][103])
-          # print((((ret_dict['grad_var'])[1])[0])[4][3][83][107])
-          # print((((ret_dict['grad_var'])[2])[0])[2][2][62][10])
-          # print((((ret_dict['grad_var'])[2])[0])[4][3][83][17])
-
-          print('w1', (ret_dict['var_list_2'][0])[2][2][62][103]) 
-          print('w2', (ret_dict['var_list_2'][0])[4][3][83][107]) 
-          print('w3', (ret_dict['var_list_2'][1])[2][2][62][103]) 
-          print('w4', (ret_dict['var_list_2'][1])[4][3][83][107]) 
-          print('w3', (ret_dict['var_list_2'][2])[2][2][62][10]) 
-          print('w4', (ret_dict['var_list_2'][2])[4][3][83][17])           
-          print('b1', (ret_dict['var_list_2'][3])[103]) 
-          print('b2', (ret_dict['var_list_2'][3])[107])           
-          print('b1', (ret_dict['var_list_2'][4])[103]) 
-          print('b2', (ret_dict['var_list_2'][4])[107])           
-          print('b1', (ret_dict['var_list_2'][5])[10]) 
-          print('b2', (ret_dict['var_list_2'][5])[17])           
-
-          print('weights_col2-0: ', ret_dict['weights_col2-0'].shape)
-
-          # for elem in ret_dict['var_list_2']:
-          #   print('shape: ', elem.shape)
-          
-          # print('====================================')
+          print(batch)
+          print(batch, ret_dict['nw_offs_residue'])
+          # print(batch, ret_dict['offs_gradient'])
 
         duration = time.time() - start_time
 
-        # print('duration: ', duration)
+        print('duration: ', duration)
       
       writer.close()
 
