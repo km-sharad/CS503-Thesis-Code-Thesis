@@ -229,8 +229,9 @@ def train(stats_dict):
           # print('offset_wts: ', ret_dict['offset_wts1'])
           # print('of_x1: ', ret_dict['of_x1'])
           # print('of_x2: ', ret_dict['of_x2'])
-          # print('of_x1_val: ', ret_dict['of_x1_val'])
-          print('pc: ', ret_dict['pc'])
+          print('of_x1_val: ', ret_dict['of_x1_val'])
+          # print('pc: ', ret_dict['pc'])
+          # print('num_chans: ', ret_dict['num_chans'])
 
           # print('kernel1: ', ret_dict['kernel1'])
 

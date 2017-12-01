@@ -176,16 +176,18 @@ def columnActivation(aug_x, column_num, fwd_dict):
     offset_channels = tf.convert_to_tensor(np.arange(FLAGS.grid_stride) + 1)
     num_chans = FLAGS.grid_stride + 1
 
+    res['num_chans'] = num_chans    #DELETE
+
     offset_wts = a[:, :, :, 1: (FLAGS.grid_stride + 1)]
     offset_max = tf.reduce_max(offset_wts, axis=3)
 
     # Softmax
-    # offset_wts = tf.subtract(offset_wts, offset_max[:,:,:,None])
-    # offset_wts = tf.exp(offset_wts)
-    # sum_offset_wts = tf.reduce_sum(offset_wts, axis=3)
-    # offset_wts = tf.divide(offset_wts, sum_offset_wts[:,:,:,None])  #o(j) from section 3.3 of paper
+    offset_wts = tf.subtract(offset_wts, offset_max[:,:,:,None])
+    offset_wts = tf.exp(offset_wts)
+    sum_offset_wts = tf.reduce_sum(offset_wts, axis=3)
+    offset_wts = tf.divide(offset_wts, sum_offset_wts[:,:,:,None])  #o(j) from section 3.3 of paper
 
-    offset_wts = tf.nn.softmax(offset_wts)
+    # offset_wts = tf.nn.softmax(offset_wts)
 
     offset_grid = tf.reshape(offset_grid, [2, 1, 1, FLAGS.grid_stride])
 
@@ -572,7 +574,8 @@ def buildModelAndTrain(images,out_locs,org_gt_coords):
   ret_dict['of_x2'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['of_x2'], scientific=None)
   ret_dict['of_x1_val'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['of_x1_val'], scientific=None)
   ret_dict['pc'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['pc'], scientific=None)
-
+  ret_dict['num_chans'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['num_chans'], scientific=None)
+  
   return ret_dict
 
 
