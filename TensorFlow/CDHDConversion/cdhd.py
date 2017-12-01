@@ -112,6 +112,8 @@ def columnActivation(aug_x, column_num, fwd_dict):
   prev_nw = aug_x[3]          #indiv_nw
   x = aug_x[0]                #xx
 
+  res = {}                #DELETE
+
   chained = True
   if(prev_pred == None):
     chained = False
@@ -124,8 +126,9 @@ def columnActivation(aug_x, column_num, fwd_dict):
                                          shape=[5, 5, FLAGS.nfc + 1, FLAGS.nfc],
                                          stddev=1,  #check if this is right
                                          wd=0.0)
+    kernel = tf.multiply(kernel, 0.0249)      #line 327-334 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
     conv = tf.nn.conv2d(x, kernel, [1, 1, 1, 1], padding='SAME')
-    biases = _variable_on_cpu('biases_col' + str(column_num), [FLAGS.nfc], tf.constant_initializer(1.0))
+    biases = _variable_on_cpu('biases_col' + str(column_num), [FLAGS.nfc], tf.constant_initializer(0.1))
     a = tf.nn.bias_add(conv, biases)
     a = tf.nn.relu(a, name=scope.name)
 
@@ -134,8 +137,9 @@ def columnActivation(aug_x, column_num, fwd_dict):
                                          shape=[5, 5, FLAGS.nfc, FLAGS.nfc],
                                          stddev=1,  #check if this is right
                                          wd=0.0)
+    kernel = tf.multiply(kernel, 0.0250)      #line 327-334 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
     conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
-    biases = _variable_on_cpu('biases_col' + str(column_num), [FLAGS.nfc], tf.constant_initializer(1.0))
+    biases = _variable_on_cpu('biases_col' + str(column_num), [FLAGS.nfc], tf.constant_initializer(0.1))
     a = tf.nn.bias_add(conv, biases)
     a = tf.nn.relu(a, name=scope.name)
 
@@ -144,8 +148,9 @@ def columnActivation(aug_x, column_num, fwd_dict):
                                          shape=[5, 5, FLAGS.nfc, num_out_filters],
                                          stddev=1,  #check if this is right
                                          wd=0.0)
+    kernel = tf.multiply(kernel, 0.0250)      #line 327-334 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
     conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
-    biases = _variable_on_cpu('biases_col' + str(column_num), [num_out_filters], tf.constant_initializer(1.0))
+    biases = _variable_on_cpu('biases_col' + str(column_num), [num_out_filters], tf.constant_initializer(0.1))
     a = tf.nn.bias_add(conv, biases)
 
     #e.g.: a shape: [10, 42, 32, 26], w shape: [10, 42, 32, 1]
@@ -162,6 +167,8 @@ def columnActivation(aug_x, column_num, fwd_dict):
     pc = tf.reduce_sum(pc, axis=1)
     pc = tf.reshape(pc, [tf.shape(pc)[0], 1, tf.shape(pc)[1], 1])
 
+    res['pc'] = pc    #DELETE
+
     #Predict the offset (section 3.3 of paper).
     #Use the offset grid to compute the offset.
     offset_grid = fwd_dict['offset_grid']
@@ -173,18 +180,28 @@ def columnActivation(aug_x, column_num, fwd_dict):
     offset_max = tf.reduce_max(offset_wts, axis=3)
 
     # Softmax
-    offset_wts = tf.subtract(offset_wts, offset_max[:,:,:,None])
-    offset_wts = tf.exp(offset_wts)
-    sum_offset_wts = tf.reduce_sum(offset_wts, axis=3)
-    offset_wts = tf.divide(offset_wts, sum_offset_wts[:,:,:,None])  #o(j) from section 3.3 of paper
+    # offset_wts = tf.subtract(offset_wts, offset_max[:,:,:,None])
+    # offset_wts = tf.exp(offset_wts)
+    # sum_offset_wts = tf.reduce_sum(offset_wts, axis=3)
+    # offset_wts = tf.divide(offset_wts, sum_offset_wts[:,:,:,None])  #o(j) from section 3.3 of paper
+
+    offset_wts = tf.nn.softmax(offset_wts)
 
     offset_grid = tf.reshape(offset_grid, [2, 1, 1, FLAGS.grid_stride])
+
+    res['offset_grid'] = offset_grid    #DELETE
+    res['offset_wts1'] = offset_wts    #DELETE
     
-    of_x = tf.multiply(tf.cast(offset_grid[0,:,:,:], tf.float32), offset_wts)
-    of_y = tf.multiply(tf.cast(offset_grid[1,:,:,:], tf.float32), offset_wts)
+    of_x = tf.multiply(tf.cast(offset_grid[0,0,0,:], tf.float32), offset_wts)
+    of_y = tf.multiply(tf.cast(offset_grid[1,0,0,:], tf.float32), offset_wts)
+
+    res['of_x1'] = tf.shape(of_x)    #DELETE
 
     of_x = tf.reduce_sum(of_x,axis=3)
     of_y = tf.reduce_sum(of_y,axis=3)
+
+    res['of_x2'] = tf.shape(of_x)    #DELETE
+    res['of_x1_val'] = of_x    #DELETE
 
     #po = p(i) of eq 2 from section 3.3 of paper
     po = tf.stack([of_x, of_y])
@@ -234,7 +251,7 @@ def columnActivation(aug_x, column_num, fwd_dict):
     xx = tf.reshape(xx, [tf.shape(x)[0], tf.shape(x)[1], tf.shape(x)[2],1])    
     out_x = [xx, pc + poc, indiv_preds, indiv_nw, loss]
 
-    res = {}
+    # res = {}
     res['x'] = out_x
     res['pred'] = pc;
     res['w'] = w;
@@ -263,8 +280,9 @@ def doForwardPass(x, out_locs, gt_loc):
 
   offset_grid = np.asarray(offset_grid_list) 
   offset_grid = tf.convert_to_tensor(offset_grid)
+  offset_grid = tf.transpose(offset_grid)
   offset_grid_shape = offset_grid.get_shape().as_list()
-  offset_grid = tf.reshape(offset_grid, [1, offset_grid_shape[1],offset_grid_shape[0]])
+  offset_grid = tf.reshape(offset_grid, [1, offset_grid_shape[0],offset_grid_shape[1]])
 
   #25 + 1 filters: 25 for the offsets and 1 for the gt coordinate
   num_out_filters = offset_grid.get_shape().as_list()[2] + 1; 
@@ -317,7 +335,7 @@ def doForwardPass(x, out_locs, gt_loc):
                     tf.shape(x_sans_xa)[2], 1])
 
     #combining activation of sixth convolution with output of previous layer
-    #TODO: may not be required for last column
+    #TODO: not required for last column
     aug_x[0] = tf.concat(3, [out_x[0],x_sans_xa], name='concat_x_and_a_sans_xa') #xx
 
     aug_x[1] = out_x[1]     #pc + poc
@@ -371,6 +389,7 @@ def inference(images,out_locs,org_gt_coords):
                                          shape=[3, 3, 3, 32],
                                          stddev=1,  #check if this is right
                                          wd=0.0)
+    kernel = tf.multiply(kernel, 0.2722)        #line 321-325 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
     conv = tf.nn.conv2d(images, kernel, [1, 2, 2, 1], padding='VALID')
     biases = _variable_on_cpu('biases', [32], tf.constant_initializer(1.0))
     pre_activation = tf.nn.bias_add(conv, biases)
@@ -385,6 +404,7 @@ def inference(images,out_locs,org_gt_coords):
                                          shape=[3, 3, 32, 64],
                                          stddev=1,
                                          wd=0.0)
+    kernel = tf.multiply(kernel, 0.0833)        #line 321-325 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
     conv = tf.nn.conv2d(conv1, kernel, [1, 2, 2, 1], padding='VALID')
     biases = _variable_on_cpu('biases', [64], tf.constant_initializer(1.0))
     pre_activation = tf.nn.bias_add(conv, biases)
@@ -396,6 +416,7 @@ def inference(images,out_locs,org_gt_coords):
                                          shape=[3, 3, 64, 64],
                                          stddev=1,
                                          wd=0.0)
+    kernel = tf.multiply(kernel, 0.0589)        #line 321-325 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
     conv = tf.nn.conv2d(conv2, kernel, [1, 2, 2, 1], padding='VALID')
     biases = _variable_on_cpu('biases', [64], tf.constant_initializer(1.0))
     pre_activation = tf.nn.bias_add(conv, biases)
@@ -407,6 +428,7 @@ def inference(images,out_locs,org_gt_coords):
                                          shape=[3, 3, 64, 64],
                                          stddev=1,
                                          wd=0.0)
+    kernel = tf.multiply(kernel, 0.0589)        #line 321-325 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
     conv = tf.nn.conv2d(conv3, kernel, [1, 1, 1, 1], padding='SAME')
     biases = _variable_on_cpu('biases', [64], tf.constant_initializer(1.0))
     pre_activation = tf.nn.bias_add(conv, biases)
@@ -418,6 +440,7 @@ def inference(images,out_locs,org_gt_coords):
                                          shape=[3, 3, 64, 128],
                                          stddev=1,
                                          wd=0.0)
+    kernel = tf.multiply(kernel, 0.0589)        #line 321-325 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
     conv = tf.nn.conv2d(conv4, kernel, [1, 2, 2, 1], padding='VALID')
     biases = _variable_on_cpu('biases', [128], tf.constant_initializer(1.0))
     pre_activation = tf.nn.bias_add(conv, biases)
@@ -429,6 +452,7 @@ def inference(images,out_locs,org_gt_coords):
                                          shape=[5, 5, 128, 128],
                                          stddev=1,
                                          wd=0.0)
+    kernel = tf.multiply(kernel, 0.0250)        #line 321-325 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
     conv = tf.nn.conv2d(conv5, kernel, [1, 1, 1, 1], padding='SAME')
     biases = _variable_on_cpu('biases', [128], tf.constant_initializer(1.0))
     pre_activation = tf.nn.bias_add(conv, biases)
@@ -437,64 +461,118 @@ def inference(images,out_locs,org_gt_coords):
     res_aux = doForwardPass(conv6, out_locs, org_gt_coords)
     return res_aux, conv6
 
-def residue2gradientSL1(residue, transition_dist):
-  clipped_tensor = tf.clip_by_value(residue, -transition_dist, transition_dist)
-  return clipped_tensor
+def train(res_aux):
 
-def getOffsetNWGradient(offs_residue, transition_dist):
-  offs_nw_gradient = tf.abs(offs_residue);
-  comparator_ge = tf.greater_equal(offs_nw_gradient, [transition_dist]) 
-  offs_nw_gradient = tf.where(comparator_ge,
-              tf.divide(tf.subtract(offs_nw_gradient, transition_dist),2),
-              tf.divide(tf.square(offs_nw_gradient),2))
-  offs_nw_gradient = tf.reduce_sum(offs_nw_gradient, axis=2)
-  offs_nw_gradient = tf.reshape(offs_nw_gradient, [tf.shape(offs_nw_gradient)[0], tf.shape(offs_nw_gradient)[1],1,1])
-  return offs_nw_gradient
+  print(tf.get_collection('weights_col2')[0].get_shape().as_list())
 
-def train(res_aux, x):
   ret_dict = {}
-
-  target_residue  = res_aux['target_residue']
-  offs_residue = res_aux['offs_residue']
-  offs_loss = res_aux['offs_loss']
-  res_steps = res_aux['res_steps']
-
-  res_dzdx = tf.zeros_like(x)
-
-  target_grad = residue2gradientSL1(target_residue, FLAGS.transition_dist)
-  offs_gradient = residue2gradientSL1(offs_residue, FLAGS.transition_dist);
-
-  grad = []
-  grad.append(tf.zeros_like(res_aux['res_steps'][FLAGS.steps - 1]['x'][0]))
-  grad.append(target_grad)
-  grad.append(tf.multiply(offs_gradient, res_aux['res_steps'][2]['x'][3]))
-  grad.append(tf.multiply(getOffsetNWGradient(offs_residue, FLAGS.transition_dist), FLAGS.offset_pred_weight))
-  grad.append(0) 
-
-  back_res = []
-
-  # Append the features with extra channels
-  n = tf.shape(x)[1] * tf.shape(x)[2]
-  xa = tf.multiply(tf.cast(tf.divide(tf.ones([x.get_shape().as_list()[0], \
-                tf.shape(x)[1],tf.shape(x)[2],1], tf.int32), n), tf.float32), FLAGS.pred_factor)
-  x_in = tf.concat(3, [xa,x])    #IN NEWER VERSION OF TF CORRECT COMMAND IS: tf.concat([xa,x], 3)
-  aug_x_in = [x_in, None, None, None, 0]
-
-  next_offs_loss = offs_loss;
+  # ret_dict['weights_col2-0'] = tf.get_collection('weights_col2')[0]
+  # ret_dict['var_list_2'] = tf.get_collection('weights_col2')
 
 
-  ret_dict['nw_offs_residue'] = getOffsetNWGradient(offs_residue, FLAGS.transition_dist)
-  ret_dict['offs_residue'] = offs_residue
-  ret_dict['offs_gradient'] = offs_gradient
+  # # col_2_loss = res_aux['loss']
+
+  # col_2_loss = np.sum(res_aux['loss'], axis=0)[0,0,0]
+
+  # a_optimizer_col_2 = tf.train.GradientDescentOptimizer(learning_rate=0.001)
+  # grad_var = a_optimizer_col_2.compute_gradients(col_2_loss, var_list=tf.get_collection('weights_col2'))
+  # ret_dict['grad_var'] = grad_var
+  # a_optimizer_col_2.apply_gradients(grad_var)
+
+
+  # a_optimizer_col_2.minimize(col_2_loss, var_list=tf.get_collection(tf.GraphKeys.VARIABLES))
+
+  col_2_loss = res_aux['loss']
+  a_optimizer_col_2 = tf.train.AdamOptimizer()
+  # a_optimizer_col_2.__init__(
+  #   learning_rate=0.00001,
+  #   beta1=0.9,
+  #   beta2=0.999,
+  #   epsilon=1e-08,
+  #   use_locking=False,
+  #   name='Adam_2')
+
+  a_optimizer_col_2 = tf.train.GradientDescentOptimizer(learning_rate=0.1) 
+  # a_optimizer_col_2 = tf.train.MomentumOptimizer(learning_rate=0.00001, momentum=0.0003) 
+
+  var_list_2 = []
+  var_list_2 = var_list_2 + tf.get_collection('weights_col2')
+  var_list_2 = var_list_2 + tf.get_collection('biases_col2')
+  # var_list_2 = var_list_2 + tf.get_collection('weights') 
+  # var_list_2 = var_list_2 + tf.get_collection('biases')
+
+  grad_var_2 = a_optimizer_col_2.compute_gradients(col_2_loss, var_list=tf.get_collection('weights_col2'))
+  ret_dict['grad_var'] = grad_var_2
+  a_optimizer_col_2.apply_gradients(grad_var_2)
+  # a_optimizer_col_2.minimize(col_2_loss, var_list=var_list_2)
+
+  '''
+  col_1_loss = (res_aux['res_steps'][2])['x'][4]
+  a_optimizer_col_1 = tf.train.AdamOptimizer()
+  # a_optimizer_col_1.__init__(
+  #   learning_rate=0.00001,
+  #   beta1=0.9,
+  #   beta2=0.999,
+  #   epsilon=1e-08,
+  #   use_locking=False,
+  #   name='Adam_1')
+
+  a_optimizer_col_1 = tf.train.GradientDescentOptimizer(learning_rate=0.1)
+  # a_optimizer_col_1 = tf.train.MomentumOptimizer(learning_rate=0.00001, momentum=0.0003)  
+
+  var_list_1 = []
+  var_list_1 = var_list_1 + tf.get_collection('weights_col1')
+  var_list_1 = var_list_1 + tf.get_collection('biases_col1')
+  var_list_1 = var_list_1 + tf.get_collection('weights') 
+  var_list_1 = var_list_1 + tf.get_collection('biases')
+
+  grad_var_1 = a_optimizer_col_1.compute_gradients(col_1_loss, var_list=tf.get_collection('weights_col1'))
+  a_optimizer_col_1.apply_gradients(grad_var_1)  
+  # a_optimizer_col_1.minimize(col_1_loss, var_list=var_list_1)
+
+  col_0_loss = (res_aux['res_steps'][1])['x'][4]
+  a_optimizer_col_0 = tf.train.AdamOptimizer()
+  # a_optimizer_col_0.__init__(
+  #   learning_rate=0.00001,
+  #   beta1=0.9,
+  #   beta2=0.999,
+  #   epsilon=1e-08,
+  #   use_locking=False,
+  #   name='Adam_0')
+
+  a_optimizer_col_0 = tf.train.GradientDescentOptimizer(learning_rate=0.1) 
+  # a_optimizer_col_0 = tf.train.MomentumOptimizer(learning_rate=0.00001, momentum=0.0003) 
+  
+  var_list_0 = []
+  var_list_0 = var_list_0 + tf.get_collection('weights_col0')
+  var_list_0 = var_list_0 + tf.get_collection('biases_col0')
+  var_list_0 = var_list_0 + tf.get_collection('weights') 
+  var_list_0 = var_list_0 + tf.get_collection('biases')
+
+  grad_var_0 = a_optimizer_col_0.compute_gradients(col_0_loss, var_list=tf.get_collection('weights_col0'))
+  a_optimizer_col_0.apply_gradients(grad_var_0)  
+  # a_optimizer_col_0.minimize(col_0_loss, var_list=var_list_0)
+  '''
+  ret_dict['weights_col2-0'] = tf.get_collection('weights_col2')[0]
+  ret_dict['var_list_2'] = var_list_2
+
   return ret_dict
 
   # for op in tf.get_default_graph().get_operations():
   #   print str(op.name) 
 
 def buildModelAndTrain(images,out_locs,org_gt_coords):
-  res_aux, x = inference(images,out_locs,org_gt_coords)
-  ret_dict = train(res_aux, x)
+  res_aux, conv6 = inference(images,out_locs,org_gt_coords)
+  ret_dict = train(res_aux)
   ret_dict['loss'] = res_aux['loss']
+  ret_dict['conv6'] = tf.as_string(conv6, scientific=None)
+  ret_dict['offset_grid'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['offset_grid'], scientific=None)
+  ret_dict['offset_wts1'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['offset_wts1'], scientific=None)
+  ret_dict['of_x1'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['of_x1'], scientific=None)
+  ret_dict['of_x2'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['of_x2'], scientific=None)
+  ret_dict['of_x1_val'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['of_x1_val'], scientific=None)
+  ret_dict['pc'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['pc'], scientific=None)
+
   return ret_dict
 
 
