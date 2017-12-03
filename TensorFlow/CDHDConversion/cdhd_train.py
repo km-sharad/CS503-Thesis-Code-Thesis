@@ -227,14 +227,43 @@ def train(stats_dict):
           #   print(ret_dict['offset_grid'][0][0][0][i], ret_dict['offset_grid'][1][0][0][i])
 
           # print('offset_wts: ', ret_dict['offset_wts1'])
+
+          # print('x before: ', ret_dict['x_before'][9][12][22][127])
+          # print('x after: ', ret_dict['x_after'][9][12][22][128])
+          # print('x before: ', ret_dict['x_before'][4][15][24][127])
+          # print('x after: ', ret_dict['x_after'][4][15][24][128])          
+          # print('xa 1: ', ret_dict['x_after'][0][12][22][0])
+          # print('xa 2: ', ret_dict['x_after'][9][12][22][0])
+          # print('xa 3: ', ret_dict['x_after'][2][12][22][0])
+          # print('xa 4: ', ret_dict['x_after'][5][12][22][0])
+
           # print('of_x1: ', ret_dict['of_x1'])
           # print('of_x2: ', ret_dict['of_x2'])
-          print('of_x1_val: ', ret_dict['of_x1_val'])
+          # print('po_shape_1: ', ret_dict['po_shape_1'])
+          
+          # print('x y 1: ', ret_dict['of_x_val'][6][23][17], ret_dict['of_y_val'][6][23][17])
+          # print('x y 1: ', ret_dict['of_x_val'][3][21][7], ret_dict['of_y_val'][3][21][7])
+          # print('x y 2: ', ret_dict['po_val'][0][6][23][17], ret_dict['po_val'][1][6][23][17])
+          # print('x y 2: ', ret_dict['po_val'][0][3][21][7], ret_dict['po_val'][1][3][21][7])          
+
+          # print('x y 3: ', ret_dict['po_val_2'][6][23][17][0], ret_dict['po_val_2'][6][23][17][1])
+          # print('x y 3: ', ret_dict['po_val_2'][3][21][7][0], ret_dict['po_val_2'][3][21][7][1])                    
+
           # print('pc: ', ret_dict['pc'])
           # print('num_chans: ', ret_dict['num_chans'])
 
           # print('kernel1: ', ret_dict['kernel1'])
 
+          print('of_x2: ', ret_dict['of_x2'])
+          print('po x, y: ', ret_dict['po_1'][9][21][19][0], ret_dict['po_1'][9][21][19][1])
+          print('nw: ', ret_dict['nw_2'][9][21][19][0])
+          print('poc x, y: ', ret_dict['poc_1'][9][21][19][0], ret_dict['poc_1'][9][21][19][1])
+
+
+          # print('po_1 x, y: ', ret_dict['po_1'][0][9][21][19], ret_dict['po_1'][1][9][21][19])
+          # print('po_2 x,y: ', ret_dict['po_2'][9][21][19][0], ret_dict['po_2'][9][21][19][1])
+          # print('po_1 x, y: ', ret_dict['po_1'])
+          # print('po_2 x,y: ', ret_dict['po_2'])          
           
 
           # for elem in ret_dict['var_list_2']:

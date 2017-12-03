@@ -158,16 +158,17 @@ def columnActivation(aug_x, column_num, fwd_dict):
 
     #getNormalizedLocationWeightsFast() returns softmax of the activation w
     nw = getNormalizedLocationWeightsFast(w)
+
+    # nw[0] = batch size, nw[1] = rows, nw[2] = columns 
     nw_reshape = tf.reshape(nw, [tf.shape(nw)[0], -1])
 
     out_locs_rs = tf.convert_to_tensor(out_locs)
     out_locs_rs = tf.cast(out_locs_rs, tf.float32)
 
     pc = tf.multiply(nw_reshape[:,:,None], out_locs_rs[None,:,:])
+
     pc = tf.reduce_sum(pc, axis=1)
     pc = tf.reshape(pc, [tf.shape(pc)[0], 1, tf.shape(pc)[1], 1])
-
-    res['pc'] = pc    #DELETE
 
     #Predict the offset (section 3.3 of paper).
     #Use the offset grid to compute the offset.
@@ -179,9 +180,9 @@ def columnActivation(aug_x, column_num, fwd_dict):
     res['num_chans'] = num_chans    #DELETE
 
     offset_wts = a[:, :, :, 1: (FLAGS.grid_stride + 1)]
-    offset_max = tf.reduce_max(offset_wts, axis=3)
 
     # Softmax
+    offset_max = tf.reduce_max(offset_wts, axis=3)
     offset_wts = tf.subtract(offset_wts, offset_max[:,:,:,None])
     offset_wts = tf.exp(offset_wts)
     sum_offset_wts = tf.reduce_sum(offset_wts, axis=3)
@@ -197,17 +198,30 @@ def columnActivation(aug_x, column_num, fwd_dict):
     of_x = tf.multiply(tf.cast(offset_grid[0,0,0,:], tf.float32), offset_wts)
     of_y = tf.multiply(tf.cast(offset_grid[1,0,0,:], tf.float32), offset_wts)
 
-    res['of_x1'] = tf.shape(of_x)    #DELETE
+    res['of_x1'] = of_x   #DELETE
+    res['of_y1'] = of_y   #DELETE
 
     of_x = tf.reduce_sum(of_x,axis=3)
     of_y = tf.reduce_sum(of_y,axis=3)
 
+    of_x = tf.reshape(of_x, [tf.shape(of_x)[0], tf.shape(of_x)[1], tf.shape(of_x)[2], 1])
+    of_y = tf.reshape(of_y, [tf.shape(of_y)[0], tf.shape(of_y)[1], tf.shape(of_y)[2], 1])
+    # po_stack = tf.concat(3, [of_x_1, of_y_1])
+    # res['po_stack'] = tf.shape(po_stack)    #DELETE    
+
     res['of_x2'] = tf.shape(of_x)    #DELETE
-    res['of_x1_val'] = of_x    #DELETE
+    res['nw_2'] = nw    #DELETE
 
     #po = p(i) of eq 2 from section 3.3 of paper
     po = tf.stack([of_x, of_y])
-    po = tf.reshape(po, [tf.shape(po)[1], tf.shape(po)[2], tf.shape(po)[3], tf.shape(po)[0]])
+    po = tf.concat(3, [of_x, of_y], name="conct_of_x_of_y_into_po")
+
+    res['po_1'] = po    #DELETE    
+    # po = tf.reshape(po, [tf.shape(po)[1], tf.shape(po)[2], tf.shape(po)[3], tf.shape(po)[0]])
+    # res['po_2'] = tf.shape(po)    #DELETE    
+
+    poc_1 = tf.multiply(po,nw)  #DELETE
+    res['poc_1'] = poc_1    #DELETE    
 
     #poc = P of eq 1 from section 3.2 of paper
     poc = tf.reduce_sum(tf.multiply(po,nw), axis=(1,2))
@@ -272,6 +286,9 @@ def columnActivation(aug_x, column_num, fwd_dict):
     return res  
 
 def doForwardPass(x, out_locs, gt_loc):
+
+  res_aux = {}    #DELETE
+
   grid_x = np.arange(-FLAGS.grid_size, FLAGS.grid_size + 1, FLAGS.grid_stride)
   grid_y = np.arange(-FLAGS.grid_size, FLAGS.grid_size + 1, FLAGS.grid_stride)
 
@@ -291,16 +308,14 @@ def doForwardPass(x, out_locs, gt_loc):
 
   n = tf.shape(x)[1] * tf.shape(x)[2]
   
-  xa = tf.multiply(tf.cast(tf.divide(tf.ones([x.get_shape().as_list()[0], \
+  xa = tf.multiply(tf.cast(tf.divide(tf.ones([tf.shape(x)[0], \
                 tf.shape(x)[1],tf.shape(x)[2],1], tf.int32), n), tf.float32), FLAGS.pred_factor)
 
-  #If above approach does not work, try following
-  #TODO: feed populated xa using formula:
-  # n = x_shape[1] * x_shape[2]
-  # xa = tf.cast(tf.divide(tf.ones([x_shape[0], x_shape[1],x_shape[2],1], tf.int32), n), tf.float32)
-  #xa = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, None, None, 1])
+  res_aux['x_before'] = x   #DELETE
 
   x = tf.concat(3, [xa,x])    #IN NEWER VERSION OF TF CORRECT COMMAND IS: tf.concat([xa,x], 3)
+
+  res_aux['x_after'] = x    #DELETE
 
   res_steps = []
 
@@ -327,7 +342,7 @@ def doForwardPass(x, out_locs, gt_loc):
     out_x = res_step['x']
 
     #Output of step 1 goes as input to step 2 and output of step 2 goes as input to step 3
-    x_shape = aug_x[0].get_shape().as_list()
+    x_shape = tf.shape(aug_x[0])
     #TODO: check size of x_sans_xa after data is fed
     x_sans_xa = tf.slice(aug_x[0], [0,0,0,1], [tf.shape(aug_x[0])[0], tf.shape(aug_x[0])[1], \
                     tf.shape(aug_x[0])[2], -1])
@@ -370,7 +385,7 @@ def doForwardPass(x, out_locs, gt_loc):
   
   pred = res_step['x'][1]
 
-  res_aux = {}
+  # res_aux = {}
   # res = res_ip1;
   res_aux['loss'] = loss    # == res.x = loss; line 64 of 'centroidChainGrid9LossLayer()'
   res_aux['pred'] = pred  
@@ -566,16 +581,22 @@ def train(res_aux):
 def buildModelAndTrain(images,out_locs,org_gt_coords):
   res_aux, conv6 = inference(images,out_locs,org_gt_coords)
   ret_dict = train(res_aux)
+
   ret_dict['loss'] = res_aux['loss']
+  ret_dict['x_before'] = res_aux['x_before']
+  ret_dict['x_after'] = res_aux['x_after']
   ret_dict['conv6'] = tf.as_string(conv6, scientific=None)
   ret_dict['offset_grid'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['offset_grid'], scientific=None)
   ret_dict['offset_wts1'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['offset_wts1'], scientific=None)
   ret_dict['of_x1'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['of_x1'], scientific=None)
+  ret_dict['of_y1'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['of_y1'], scientific=None)
   ret_dict['of_x2'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['of_x2'], scientific=None)
-  ret_dict['of_x1_val'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['of_x1_val'], scientific=None)
-  ret_dict['pc'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['pc'], scientific=None)
+  ret_dict['po_1'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['po_1'], scientific=None)
+  ret_dict['nw_2'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['nw_2'], scientific=None)
+  ret_dict['poc_1'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['poc_1'], scientific=None)
   ret_dict['num_chans'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['num_chans'], scientific=None)
-  
+
+
   return ret_dict
 
 
