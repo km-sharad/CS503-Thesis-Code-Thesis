@@ -79,29 +79,24 @@ def getNormalizedLocationWeightsFast(w):
   nw = tf.divide(ew,sew[:,None,None,:])
   return nw
 
-def doOffset2GaussianForward(offset, locs, sigma, feat_size):
+def doOffset2GaussianForward(offset, locs, sigma):
   #based on: https://en.wikipedia.org/wiki/Radial_basis_function_kernel
   feat_denom = tf.reduce_sum(tf.square(tf.subtract(offset, locs[None,:,:,None])), axis=2)
   feat = tf.divide((tf.divide(feat_denom,2)), tf.square(sigma))
-  feat_shape = feat.get_shape().as_list()
-  feat = tf.reshape(feat, [tf.shape(feat)[0], tf.shape(feat)[1], tf.shape(feat)[2], 1]) 
   feat = tf.exp(-feat)
-  # feat_size = [feat_size[0], tf.shape(feat)[1], tf.shape(feat)[2],1]
-  # feat = tf.reshape(feat, tf.convert_to_tensor(feat_size))
   return feat  
 
 def computePredictionLossSL1(pred, target, transition_dist):
   residue = tf.subtract(pred, target)
   dim_losses = tf.abs(residue)
 
-  comparator_lt = tf.less(dim_losses, [transition_dist]) 
+  comparator_lt = tf.less(dim_losses, transition_dist) 
 
   loss = tf.where(comparator_lt, 
                         tf.divide(tf.square(dim_losses),2),
                         tf.divide(tf.subtract(dim_losses, transition_dist),2))   
 
   loss = tf.reduce_sum(loss, axis=2)
-  # loss = tf.reshape(loss, [loss.get_shape().as_list()[0],loss.get_shape().as_list()[1],1,1])
   loss = tf.reshape(loss, [tf.shape(loss)[0],tf.shape(loss)[1],1,1])
   return loss, residue    
 
@@ -177,7 +172,7 @@ def columnActivation(aug_x, column_num, fwd_dict):
     offset_channels = tf.convert_to_tensor(np.arange(FLAGS.grid_stride) + 1)
     num_chans = FLAGS.grid_stride + 1
 
-    res['num_chans'] = num_chans    #DELETE
+    # res['num_chans'] = num_chans    #DELETE
 
     offset_wts = a[:, :, :, 1: (FLAGS.grid_stride + 1)]
 
@@ -192,53 +187,28 @@ def columnActivation(aug_x, column_num, fwd_dict):
 
     offset_grid = tf.reshape(offset_grid, [2, 1, 1, FLAGS.grid_stride])
 
-    res['offset_grid'] = offset_grid    #DELETE
-    res['offset_wts1'] = offset_wts    #DELETE
-    
     of_x = tf.multiply(tf.cast(offset_grid[0,0,0,:], tf.float32), offset_wts)
     of_y = tf.multiply(tf.cast(offset_grid[1,0,0,:], tf.float32), offset_wts)
-
-    res['of_x1'] = of_x   #DELETE
-    res['of_y1'] = of_y   #DELETE
 
     of_x = tf.reduce_sum(of_x,axis=3)
     of_y = tf.reduce_sum(of_y,axis=3)
 
     of_x = tf.reshape(of_x, [tf.shape(of_x)[0], tf.shape(of_x)[1], tf.shape(of_x)[2], 1])
     of_y = tf.reshape(of_y, [tf.shape(of_y)[0], tf.shape(of_y)[1], tf.shape(of_y)[2], 1])
-    # po_stack = tf.concat(3, [of_x_1, of_y_1])
-    # res['po_stack'] = tf.shape(po_stack)    #DELETE    
-
-    res['of_x2'] = tf.shape(of_x)    #DELETE
-    res['nw_2'] = nw    #DELETE
 
     #po = p(i) of eq 2 from section 3.3 of paper
-    po = tf.stack([of_x, of_y])
     po = tf.concat(3, [of_x, of_y], name="conct_of_x_of_y_into_po")
-
-    res['po_1'] = po    #DELETE    
-    # po = tf.reshape(po, [tf.shape(po)[1], tf.shape(po)[2], tf.shape(po)[3], tf.shape(po)[0]])
-    # res['po_2'] = tf.shape(po)    #DELETE    
-
-    poc_1 = tf.multiply(po,nw)  #DELETE
-    res['poc_1'] = poc_1    #DELETE    
 
     #poc = P of eq 1 from section 3.2 of paper
     poc = tf.reduce_sum(tf.multiply(po,nw), axis=(1,2))
-    poc_shape = poc.get_shape().as_list()
     poc = tf.reshape(poc, [tf.shape(poc)[0], 1, tf.shape(poc)[1], 1])
-
-    feat_size = a.get_shape().as_list()
-    feat_size[3] = 1    
 
     sigma = tf.cast(FLAGS.sigma, tf.float32)
 
-    # print(type(tf.get_default_session()))
-    # if tf.get_default_session() != None:
-    #   print(tf.get_default_session().run(sigma))
-    #   print sigma.eval()
+    offset_gauss = doOffset2GaussianForward(tf.add(pc, poc), out_locs_rs, sigma)
 
-    offset_gauss = doOffset2GaussianForward(tf.add(pc, poc), out_locs_rs, sigma, feat_size)
+    res['offset_gauss'] = tf.shape(offset_gauss)    #DELETE
+    offset_gauss = tf.reshape(offset_gauss, [tf.shape(a)[0], tf.shape(a)[1], tf.shape(a)[2], 1])
 
     if chained:
       cent_loss, cent_residue = computePredictionLossSL1(prev_pred, pc, FLAGS.transition_dist)
@@ -264,7 +234,6 @@ def columnActivation(aug_x, column_num, fwd_dict):
     loss = prev_loss + (cent_loss + offs_loss * FLAGS.offset_pred_weight) * FLAGS.prev_pred_weight;    
 
     xx = offset_gauss;
-    xx = tf.reshape(xx, [tf.shape(x)[0], tf.shape(x)[1], tf.shape(x)[2],1])    
     out_x = [xx, pc + poc, indiv_preds, indiv_nw, loss]
 
     # res = {}
@@ -311,11 +280,7 @@ def doForwardPass(x, out_locs, gt_loc):
   xa = tf.multiply(tf.cast(tf.divide(tf.ones([tf.shape(x)[0], \
                 tf.shape(x)[1],tf.shape(x)[2],1], tf.int32), n), tf.float32), FLAGS.pred_factor)
 
-  res_aux['x_before'] = x   #DELETE
-
   x = tf.concat(3, [xa,x])    #IN NEWER VERSION OF TF CORRECT COMMAND IS: tf.concat([xa,x], 3)
-
-  res_aux['x_after'] = x    #DELETE
 
   res_steps = []
 
@@ -342,8 +307,8 @@ def doForwardPass(x, out_locs, gt_loc):
     out_x = res_step['x']
 
     #Output of step 1 goes as input to step 2 and output of step 2 goes as input to step 3
-    x_shape = tf.shape(aug_x[0])
-    #TODO: check size of x_sans_xa after data is fed
+    #TODO: check size of x_sans_xa after data is fed. Note: checked on 12/3/17 - passed
+
     x_sans_xa = tf.slice(aug_x[0], [0,0,0,1], [tf.shape(aug_x[0])[0], tf.shape(aug_x[0])[1], \
                     tf.shape(aug_x[0])[2], -1])
 
@@ -583,22 +548,8 @@ def buildModelAndTrain(images,out_locs,org_gt_coords):
   ret_dict = train(res_aux)
 
   ret_dict['loss'] = res_aux['loss']
-  ret_dict['x_before'] = res_aux['x_before']
-  ret_dict['x_after'] = res_aux['x_after']
   ret_dict['conv6'] = tf.as_string(conv6, scientific=None)
-  ret_dict['offset_grid'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['offset_grid'], scientific=None)
-  ret_dict['offset_wts1'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['offset_wts1'], scientific=None)
-  ret_dict['of_x1'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['of_x1'], scientific=None)
-  ret_dict['of_y1'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['of_y1'], scientific=None)
-  ret_dict['of_x2'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['of_x2'], scientific=None)
-  ret_dict['po_1'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['po_1'], scientific=None)
-  ret_dict['nw_2'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['nw_2'], scientific=None)
-  ret_dict['poc_1'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['poc_1'], scientific=None)
-  ret_dict['num_chans'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['num_chans'], scientific=None)
-
+  ret_dict['offset_gauss'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['offset_gauss'], scientific=None)
 
   return ret_dict
-
-
-
 

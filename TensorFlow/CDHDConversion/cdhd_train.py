@@ -254,17 +254,6 @@ def train(stats_dict):
 
           # print('kernel1: ', ret_dict['kernel1'])
 
-          print('of_x2: ', ret_dict['of_x2'])
-          print('po x, y: ', ret_dict['po_1'][9][21][19][0], ret_dict['po_1'][9][21][19][1])
-          print('nw: ', ret_dict['nw_2'][9][21][19][0])
-          print('poc x, y: ', ret_dict['poc_1'][9][21][19][0], ret_dict['poc_1'][9][21][19][1])
-
-
-          # print('po_1 x, y: ', ret_dict['po_1'][0][9][21][19], ret_dict['po_1'][1][9][21][19])
-          # print('po_2 x,y: ', ret_dict['po_2'][9][21][19][0], ret_dict['po_2'][9][21][19][1])
-          # print('po_1 x, y: ', ret_dict['po_1'])
-          # print('po_2 x,y: ', ret_dict['po_2'])          
-          
 
           # for elem in ret_dict['var_list_2']:
           #   print('shape: ', elem.shape)
