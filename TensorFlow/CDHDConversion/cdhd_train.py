@@ -128,7 +128,7 @@ def train(stats_dict):
   """
 
   with tf.Graph().as_default():
-    global_step = tf.Variable(0, trainable=False)
+    global_step = tf.Variable(0, trainable=False, dtype=tf.int32)
     images = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, None, None, 3])
     out_locs = tf.placeholder(dtype=tf.float32, shape=[None, 2])
     org_gt_coords = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, 2])    
@@ -138,7 +138,7 @@ def train(stats_dict):
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
-    logits = cdhd.buildModelAndTrain(images,out_locs,org_gt_coords)
+    logits = cdhd.buildModelAndTrain(images,out_locs,org_gt_coords, global_step)
 
     #import pdb
     #pdb.set_trace()
@@ -186,7 +186,7 @@ def train(stats_dict):
 
           # print('images shape: ',distorted_images.shape)
 
-          ret_dict = sess.run(logits, {images: distorted_images, out_locs: meta['out_locs'], \
+          ret_dict = sess.run(logits, feed_dict={images: distorted_images, out_locs: meta['out_locs'], \
                   org_gt_coords: meta['org_gt_coords']})
 
           # print('loss shape: ', loss.shape)
@@ -219,7 +219,29 @@ def train(stats_dict):
           # print('b1', (ret_dict['var_list_2'][5])[10]) 
           # print('b2', (ret_dict['var_list_2'][5])[17])           
 
-          # print('weights_col2-0: ', ret_dict['weights_col2-0'].shape)
+          # print('weights_col2-0 shape: ', ret_dict['weights_col2_before'][0].shape)
+          # print('weights_col2-0: ', ret_dict['weights_col2-0'][2][3][56][121])
+          # print('grad_var len: ', len(ret_dict['grad_var']))
+          # print('grad_var: ', ret_dict['grad_var'][0][0].shape)
+          # print('grad_var: ', ret_dict['grad_var'][0][1].shape)
+
+          # print('global_step: ', ret_dict['global_step'])
+          print('global_step: %s' % tf.train.global_step(sess, global_step))
+
+          for idx in xrange(len(ret_dict['grad_var'])):
+
+            # print('gradient shape: ', ret_dict['grad_var'][idx][0].shape)
+            # print('variable shape: ', ret_dict['grad_var'][idx][1].shape)
+            if idx < 3:
+              print('gradient val var: ', ret_dict['grad_var'][idx][0][2][3][87][24])
+              print('variable val var: ', ret_dict['grad_var'][idx][1][2][3][87][24]) 
+              print('weights_col2-before: ', ret_dict['weights_col2_before'][idx][2][3][87][24])           
+              print('weights_col2-after: ', ret_dict['weights_col2_after'][idx][2][3][87][24])           
+            # else:
+            #   print('gradient val bias: ', ret_dict['grad_var'][idx][0][22])
+            #   print('variable val bias: ', ret_dict['grad_var'][idx][1][22])                          
+
+
           # print('conv6: ', ret_dict['conv6'])
           # print('x_col0_in: ', ret_dict['x_col0_in'])
           # print('offset_grid: ', ret_dict['offset_grid'])
@@ -251,9 +273,9 @@ def train(stats_dict):
 
           # print('pc: ', ret_dict['pc'])
           # print('num_chans: ', ret_dict['num_chans'])
+          
 
           # print('kernel1: ', ret_dict['kernel1'])
-
 
           # for elem in ret_dict['var_list_2']:
           #   print('shape: ', elem.shape)

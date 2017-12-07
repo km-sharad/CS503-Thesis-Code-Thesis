@@ -14,16 +14,16 @@ FLAGS = tf.app.flags.FLAGS
 # Basic model parameters.
 # tf.app.flags.DEFINE_integer('batch_size', 10,"""Number of images to process in a batch.""")
 tf.app.flags.DEFINE_boolean('use_fp16', False, """Train the model using fp16.""")
-tf.app.flags.DEFINE_boolean('steps', 3, """number of columns for steps in paper""")
-tf.app.flags.DEFINE_boolean('transition_dist', 1, """transition_dist""")
-tf.app.flags.DEFINE_boolean('loc_pred_scale', 1, """loc_pred_scale""")
-tf.app.flags.DEFINE_boolean('offset_pred_weight', 0.1, """offset_pred_weight""")
-tf.app.flags.DEFINE_boolean('pred_factor', 50, """pred_factor""")
-tf.app.flags.DEFINE_boolean('nfc', 128, """number of filter channels""")
-tf.app.flags.DEFINE_boolean('grid_size', 50, """grid size""")
-tf.app.flags.DEFINE_boolean('grid_stride', 25, """grid stride""")
-tf.app.flags.DEFINE_boolean('sigma', 15, """RBF sigma""")
-tf.app.flags.DEFINE_boolean('prev_pred_weight', 0.1, """prev_pred_weight""")
+tf.app.flags.DEFINE_integer('steps', 3, """number of columns for steps in paper""")
+tf.app.flags.DEFINE_integer('transition_dist', 1, """transition_dist""")
+tf.app.flags.DEFINE_integer('loc_pred_scale', 1, """loc_pred_scale""")
+tf.app.flags.DEFINE_float('offset_pred_weight', 0.1, """offset_pred_weight""")
+tf.app.flags.DEFINE_integer('pred_factor', 50, """pred_factor""")
+tf.app.flags.DEFINE_integer('nfc', 128, """number of filter channels""")
+tf.app.flags.DEFINE_integer('grid_size', 50, """grid size""")
+tf.app.flags.DEFINE_integer('grid_stride', 25, """grid stride""")
+tf.app.flags.DEFINE_integer('sigma', 15, """RBF sigma""")
+tf.app.flags.DEFINE_float('prev_pred_weight', 0.1, """prev_pred_weight""")
 
 def initialize_variables():
   tf.global_variables_initializer()
@@ -171,8 +171,6 @@ def columnActivation(aug_x, column_num, fwd_dict):
     num_offset_channels = offset_grid.get_shape().as_list()[2]
     offset_channels = tf.convert_to_tensor(np.arange(FLAGS.grid_stride) + 1)
     num_chans = FLAGS.grid_stride + 1
-
-    # res['num_chans'] = num_chans    #DELETE
 
     offset_wts = a[:, :, :, 1: (FLAGS.grid_stride + 1)]
 
@@ -330,11 +328,10 @@ def doForwardPass(x, out_locs, gt_loc):
       all_cents = res_step['pc']
     else:  
       all_preds = tf.concat(1,[all_preds, tf.cast(aug_x[1], tf.float32)])
-      all_cents = tf.concat(1, [all_cents, tf.cast(res_step['pc'], tf.float32)])
+      all_cents = tf.concat(1,[all_cents, tf.cast(res_step['pc'], tf.float32)])
 
   gt_loc = tf.convert_to_tensor(gt_loc)
   gt_loc = tf.cast(gt_loc, tf.float32)
-  gt_loc_shape = gt_loc.get_shape().as_list()
   gt_loc = tf.reshape(gt_loc, [tf.shape(gt_loc)[0],1, tf.shape(gt_loc)[1],1])
 
   #Compute the loss.
@@ -441,18 +438,15 @@ def inference(images,out_locs,org_gt_coords):
     conv6 = tf.nn.relu(pre_activation, name=scope.name)  
 
     res_aux = doForwardPass(conv6, out_locs, org_gt_coords)
-    return res_aux, conv6
+    return res_aux
 
-def train(res_aux):
+def train(res_aux, global_step):
 
-  print(tf.get_collection('weights_col2')[0].get_shape().as_list())
+  # print(tf.get_collection('weights_col2')[0].get_shape().as_list())
 
   ret_dict = {}
-  # ret_dict['weights_col2-0'] = tf.get_collection('weights_col2')[0]
-  # ret_dict['var_list_2'] = tf.get_collection('weights_col2')
 
-
-  # # col_2_loss = res_aux['loss']
+  col_2_loss = res_aux['loss']
 
   # col_2_loss = np.sum(res_aux['loss'], axis=0)[0,0,0]
 
@@ -464,8 +458,8 @@ def train(res_aux):
 
   # a_optimizer_col_2.minimize(col_2_loss, var_list=tf.get_collection(tf.GraphKeys.VARIABLES))
 
-  col_2_loss = res_aux['loss']
-  a_optimizer_col_2 = tf.train.AdamOptimizer()
+  # col_2_loss = res_aux['loss']
+  # a_optimizer_col_2 = tf.train.AdamOptimizer()
   # a_optimizer_col_2.__init__(
   #   learning_rate=0.00001,
   #   beta1=0.9,
@@ -483,10 +477,22 @@ def train(res_aux):
   # var_list_2 = var_list_2 + tf.get_collection('weights') 
   # var_list_2 = var_list_2 + tf.get_collection('biases')
 
-  grad_var_2 = a_optimizer_col_2.compute_gradients(col_2_loss, var_list=tf.get_collection('weights_col2'))
+  grad_var_2 = a_optimizer_col_2.compute_gradients(col_2_loss, var_list_2)
+  # grad_var_2 = a_optimizer_col_2.compute_gradients(col_2_loss, var_list=tf.get_collection('weights_col2'))
+  # grad_var_2 = a_optimizer_col_2.compute_gradients(col_2_loss, \
+  #                     var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES))
+  # grad_var_2 = a_optimizer_col_2.compute_gradients(col_2_loss)  
+  
   ret_dict['grad_var'] = grad_var_2
-  a_optimizer_col_2.apply_gradients(grad_var_2)
-  # a_optimizer_col_2.minimize(col_2_loss, var_list=var_list_2)
+  ret_dict['weights_col2_before'] = tf.get_collection('weights_col2')
+  ret_dict['var_list_2'] = var_list_2  
+  
+  # a_optimizer_col_2.apply_gradients(grad_var_2, global_step=global_step)
+
+  a_optimizer_col_2.minimize(col_2_loss, var_list=var_list_2)
+
+  ret_dict['weights_col2_after'] = tf.get_collection('weights_col2')
+  ret_dict['global_step'] = global_step
 
   '''
   col_1_loss = (res_aux['res_steps'][2])['x'][4]
@@ -535,21 +541,21 @@ def train(res_aux):
   a_optimizer_col_0.apply_gradients(grad_var_0)  
   # a_optimizer_col_0.minimize(col_0_loss, var_list=var_list_0)
   '''
-  ret_dict['weights_col2-0'] = tf.get_collection('weights_col2')[0]
-  ret_dict['var_list_2'] = var_list_2
+
 
   return ret_dict
 
   # for op in tf.get_default_graph().get_operations():
   #   print str(op.name) 
 
-def buildModelAndTrain(images,out_locs,org_gt_coords):
-  res_aux, conv6 = inference(images,out_locs,org_gt_coords)
-  ret_dict = train(res_aux)
+def buildModelAndTrain(images,out_locs,org_gt_coords, global_step):
+  res_aux = inference(images,out_locs,org_gt_coords)
+  ret_dict = train(res_aux, global_step)
 
   ret_dict['loss'] = res_aux['loss']
-  ret_dict['conv6'] = tf.as_string(conv6, scientific=None)
+  # ret_dict['conv6'] = tf.as_string(conv6, scientific=None)
   ret_dict['offset_gauss'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['offset_gauss'], scientific=None)
+  # ret_dict['all_preds_1'] = tf.as_string(res_aux['all_preds_1'])
 
   return ret_dict
 
