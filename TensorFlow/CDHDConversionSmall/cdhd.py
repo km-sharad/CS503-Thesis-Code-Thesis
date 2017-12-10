@@ -9,24 +9,15 @@ import os
 import numpy as np
 import pdb
 
-FLAGS = tf.app.flags.FLAGS
-
 # Basic model parameters.
-# tf.app.flags.DEFINE_integer('batch_size', 10,"""Number of images to process in a batch.""")
-tf.app.flags.DEFINE_boolean('use_fp16', False, """Train the model using fp16.""")
-tf.app.flags.DEFINE_integer('steps', 3, """number of columns for steps in paper""")
-tf.app.flags.DEFINE_integer('transition_dist', 1, """transition_dist""")
-tf.app.flags.DEFINE_integer('loc_pred_scale', 1, """loc_pred_scale""")
-tf.app.flags.DEFINE_float('offset_pred_weight', 0.1, """offset_pred_weight""")
-tf.app.flags.DEFINE_integer('pred_factor', 50, """pred_factor""")
-tf.app.flags.DEFINE_integer('nfc', 128, """number of filter channels""")
-tf.app.flags.DEFINE_integer('grid_size', 50, """grid size""")
-tf.app.flags.DEFINE_integer('grid_stride', 25, """grid stride""")
-tf.app.flags.DEFINE_integer('sigma', 15, """RBF sigma""")
-tf.app.flags.DEFINE_float('prev_pred_weight', 0.1, """prev_pred_weight""")
-
-def initialize_variables():
-  tf.global_variables_initializer()
+steps = 3                           # number of columns for steps in paper
+transition_dist = 1
+offset_pred_weight = 0.1
+pred_factor = 50
+nfc = 128                           # number of filter channels
+grid_size = 50
+grid_stride = 25
+prev_pred_weight = 0.1
 
 def _variable_on_cpu(name, shape, initializer):
   """Helper to create a Variable stored on CPU memory.
@@ -42,6 +33,7 @@ def _variable_on_cpu(name, shape, initializer):
   with tf.device('/cpu:0'):
     var = tf.get_variable(name, shape, initializer=initializer, dtype=tf.float32, trainable=True)
     tf.add_to_collection(name, var)
+
   return var
 
 def _variable_with_weight_decay(name, shape, stddev, wd):
@@ -60,11 +52,11 @@ def _variable_with_weight_decay(name, shape, stddev, wd):
   Returns:
     Variable Tensor
   """
-  dtype = tf.float16 if FLAGS.use_fp16 else tf.float32
+  # dtype = tf.float16 if FLAGS.use_fp16 else tf.float32
   var = _variable_on_cpu(
       name,
       shape,
-      tf.random_normal_initializer(stddev=stddev, dtype=dtype))
+      tf.random_normal_initializer(stddev=stddev, dtype=tf.float32))
   # if wd is not None:
   #   weight_decay = tf.multiply(tf.nn.l2_loss(var), wd, name='weight_loss')
   #   tf.add_to_collection('losses', weight_decay)
@@ -117,29 +109,29 @@ def columnActivation(aug_x, column_num, fwd_dict):
 
   with tf.variable_scope('col' + str(column_num) + '1') as scope:
     kernel = _variable_with_weight_decay('weights_col' + str(column_num),
-                                         shape=[5, 5, FLAGS.nfc + 1, FLAGS.nfc],
+                                         shape=[5, 5, nfc + 1, nfc],
                                          stddev=1,  #check if this is right
                                          wd=0.0)
     kernel = tf.multiply(kernel, 0.0249)      #line 327-334 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
     conv = tf.nn.conv2d(x, kernel, [1, 1, 1, 1], padding='SAME')
-    biases = _variable_on_cpu('biases_col' + str(column_num), [FLAGS.nfc], tf.constant_initializer(0.1))
+    biases = _variable_on_cpu('biases_col' + str(column_num), [nfc], tf.constant_initializer(0.1))
     a = tf.nn.bias_add(conv, biases)
     a = tf.nn.relu(a, name=scope.name)
 
   with tf.variable_scope('col' + str(column_num) + '2') as scope:
     kernel = _variable_with_weight_decay('weights_col' + str(column_num),
-                                         shape=[5, 5, FLAGS.nfc, FLAGS.nfc],
+                                         shape=[5, 5, nfc, nfc],
                                          stddev=1,  #check if this is right
                                          wd=0.0)
     kernel = tf.multiply(kernel, 0.0250)      #line 327-334 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
     conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
-    biases = _variable_on_cpu('biases_col' + str(column_num), [FLAGS.nfc], tf.constant_initializer(0.1))
+    biases = _variable_on_cpu('biases_col' + str(column_num), [nfc], tf.constant_initializer(0.1))
     a = tf.nn.bias_add(conv, biases)
     a = tf.nn.relu(a, name=scope.name)
 
   with tf.variable_scope('col' + str(column_num) + '3') as scope:
     kernel = _variable_with_weight_decay('weights_col' + str(column_num),
-                                         shape=[5, 5, FLAGS.nfc, num_out_filters],
+                                         shape=[5, 5, nfc, num_out_filters],
                                          stddev=1,  #check if this is right
                                          wd=0.0)
     kernel = tf.multiply(kernel, 0.0250)      #line 327-334 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
@@ -168,10 +160,10 @@ def columnActivation(aug_x, column_num, fwd_dict):
     #Use the offset grid to compute the offset.
     offset_grid = fwd_dict['offset_grid']
     num_offset_channels = offset_grid.get_shape().as_list()[2]
-    offset_channels = tf.convert_to_tensor(np.arange(FLAGS.grid_stride) + 1)
-    num_chans = FLAGS.grid_stride + 1
+    offset_channels = tf.convert_to_tensor(np.arange(grid_stride) + 1)
+    num_chans = grid_stride + 1
 
-    offset_wts = a[:, :, :, 1: (FLAGS.grid_stride + 1)]
+    offset_wts = a[:, :, :, 1: (grid_stride + 1)]
 
     # Softmax
     offset_max = tf.reduce_max(offset_wts, axis=3)
@@ -182,7 +174,7 @@ def columnActivation(aug_x, column_num, fwd_dict):
 
     # offset_wts = tf.nn.softmax(offset_wts)
 
-    offset_grid = tf.reshape(offset_grid, [2, 1, 1, FLAGS.grid_stride])
+    offset_grid = tf.reshape(offset_grid, [2, 1, 1, grid_stride])
 
     of_x = tf.multiply(tf.cast(offset_grid[0,0,0,:], tf.float32), offset_wts)
     of_y = tf.multiply(tf.cast(offset_grid[1,0,0,:], tf.float32), offset_wts)
@@ -200,7 +192,7 @@ def columnActivation(aug_x, column_num, fwd_dict):
     poc = tf.reduce_sum(tf.multiply(po,nw), axis=(1,2))
     poc = tf.reshape(poc, [tf.shape(poc)[0], 1, tf.shape(poc)[1], 1])
 
-    sigma = tf.cast(FLAGS.sigma, tf.float32)
+    sigma = tf.cast(15, tf.float32)   # RBF sigma
 
     offset_gauss = doOffset2GaussianForward(tf.add(pc, poc), out_locs_rs, sigma)
 
@@ -208,9 +200,9 @@ def columnActivation(aug_x, column_num, fwd_dict):
     offset_gauss = tf.reshape(offset_gauss, [tf.shape(a)[0], tf.shape(a)[1], tf.shape(a)[2], 1])
 
     if chained:
-      cent_loss, cent_residue = computePredictionLossSL1(prev_pred, pc, FLAGS.transition_dist)
+      cent_loss, cent_residue = computePredictionLossSL1(prev_pred, pc, transition_dist)
 
-      offs_loss, offs_residue = computePredictionLossSL1(prev_offsets, pc, FLAGS.transition_dist)
+      offs_loss, offs_residue = computePredictionLossSL1(prev_offsets, pc, transition_dist)
       offs_loss = tf.reduce_sum(tf.multiply(offs_loss, prev_nw), axis=1)
       offs_loss = tf.reshape(offs_loss, [tf.shape(offs_loss)[0],1,1,1])
     else:
@@ -228,7 +220,7 @@ def columnActivation(aug_x, column_num, fwd_dict):
 
     #TODO: check if it's ok to multiply current iteration's preds with ptrv iter weights
     #TODO: if learning does not converge, check how close this formula is to formula (4) in paper
-    loss = prev_loss + (cent_loss + offs_loss * FLAGS.offset_pred_weight) * FLAGS.prev_pred_weight;    
+    loss = prev_loss + (cent_loss + offs_loss * offset_pred_weight) * prev_pred_weight;    
 
     xx = offset_gauss;
     out_x = [xx, pc + poc, indiv_preds, indiv_nw, loss]
@@ -243,7 +235,7 @@ def columnActivation(aug_x, column_num, fwd_dict):
     res['nw'] = nw
     res['dwn'] = nw     #TODO: check if this is right
     res['offset_wts'] = offset_wts
-    res['offs_loss'] = offs_loss * FLAGS.offset_pred_weight * FLAGS.prev_pred_weight
+    # res['offs_loss'] = offs_loss * offset_pred_weight * prev_pred_weight
     res['cent_residue'] = cent_residue
     res['offs_residue'] = offs_residue
     res['nzw_frac'] = 0 #TODO: what is this?
@@ -255,8 +247,8 @@ def doForwardPass(x, out_locs, gt_loc):
 
   res_aux = {}    #DELETE
 
-  grid_x = np.arange(-FLAGS.grid_size, FLAGS.grid_size + 1, FLAGS.grid_stride)
-  grid_y = np.arange(-FLAGS.grid_size, FLAGS.grid_size + 1, FLAGS.grid_stride)
+  grid_x = np.arange(-grid_size, grid_size + 1, grid_stride)
+  grid_y = np.arange(-grid_size, grid_size + 1, grid_stride)
 
   offset_grid_list = []
   for xi in xrange(grid_x.shape[0]):
@@ -275,7 +267,7 @@ def doForwardPass(x, out_locs, gt_loc):
   n = tf.shape(x)[1] * tf.shape(x)[2]
   
   xa = tf.multiply(tf.cast(tf.divide(tf.ones([tf.shape(x)[0], \
-                tf.shape(x)[1],tf.shape(x)[2],1], tf.int32), n), tf.float32), FLAGS.pred_factor)
+                tf.shape(x)[1],tf.shape(x)[2],1], tf.int32), n), tf.float32), pred_factor)
 
   x = tf.concat(3, [xa,x])    #IN NEWER VERSION OF TF CORRECT COMMAND IS: tf.concat([xa,x], 3)
 
@@ -298,7 +290,7 @@ def doForwardPass(x, out_locs, gt_loc):
   all_cents = None
 
   res_step = None
-  for i in xrange(FLAGS.steps):
+  for i in xrange(steps):
     res_step = columnActivation(aug_x, i, fwd_dict)
     res_steps.append(res_step)
     out_x = res_step['x']
@@ -334,15 +326,15 @@ def doForwardPass(x, out_locs, gt_loc):
   gt_loc = tf.reshape(gt_loc, [tf.shape(gt_loc)[0],1, tf.shape(gt_loc)[1],1])
 
   #Compute the loss.
-  target_loss, target_residue = computePredictionLossSL1(res_step['x'][1], gt_loc, FLAGS.transition_dist)
-  offs_loss, offs_residue = computePredictionLossSL1(res_step['x'][2], gt_loc, FLAGS.transition_dist)
+  target_loss, target_residue = computePredictionLossSL1(res_step['x'][1], gt_loc, transition_dist)
+  offs_loss, offs_residue = computePredictionLossSL1(res_step['x'][2], gt_loc, transition_dist)
 
   offs_loss = tf.reduce_sum(tf.multiply(offs_loss, res_step['x'][3]), axis=1)
   # offs_loss = tf.reshape(offs_loss, [offs_loss.get_shape().as_list()[0],1,1,1])
   offs_loss = tf.reshape(offs_loss, [tf.shape(offs_loss)[0],1,1,1])
 
   loss = tf.add(tf.add(target_loss, res_step['x'][4]),
-                tf.multiply(offs_loss, FLAGS.offset_pred_weight))
+                tf.multiply(offs_loss, offset_pred_weight))
   
   pred = res_step['x'][1]
 
@@ -356,7 +348,7 @@ def doForwardPass(x, out_locs, gt_loc):
   # res.aux.nzw_frac = 0;
   res_aux['target_residue'] = target_residue  
   res_aux['offs_residue'] = offs_residue  
-  res_aux['offs_loss'] = tf.multiply(offs_loss, FLAGS.offset_pred_weight)  
+  res_aux['offs_loss'] = tf.multiply(offs_loss, offset_pred_weight)  
 
   return res_aux
 
@@ -444,7 +436,7 @@ def train(res_aux, global_step):
   # print(tf.get_collection('weights_col2')[0].get_shape().as_list())
 
   ret_dict = {}
-
+  ret_dict['loss'] = res_aux['loss']
   col_2_loss = res_aux['loss']
 
   # col_2_loss = np.sum(res_aux['loss'], axis=0)[0,0,0]
@@ -467,14 +459,14 @@ def train(res_aux, global_step):
   #   use_locking=False,
   #   name='Adam_2')
 
-  a_optimizer_col_2 = tf.train.GradientDescentOptimizer(learning_rate=0.0001) 
+  a_optimizer_col_2 = tf.train.GradientDescentOptimizer(learning_rate=0.1) 
   # a_optimizer_col_2 = tf.train.MomentumOptimizer(learning_rate=0.00001, momentum=0.0003) 
 
   var_list_2 = []
   var_list_2 = var_list_2 + tf.get_collection('weights_col2')
   var_list_2 = var_list_2 + tf.get_collection('biases_col2')
-  # var_list_2 = var_list_2 + tf.get_collection('weights') 
-  # var_list_2 = var_list_2 + tf.get_collection('biases')
+  var_list_2 = var_list_2 + tf.get_collection('weights') 
+  var_list_2 = var_list_2 + tf.get_collection('biases')
 
   grad_var_2 = a_optimizer_col_2.compute_gradients(col_2_loss, var_list_2)
   # grad_var_2 = a_optimizer_col_2.compute_gradients(col_2_loss, var_list=tf.get_collection('weights_col2'))
@@ -486,9 +478,9 @@ def train(res_aux, global_step):
   ret_dict['weights_col2_before'] = tf.get_collection('weights_col2')
   ret_dict['var_list_2'] = var_list_2  
   
-  # a_optimizer_col_2.apply_gradients(grad_var_2, global_step=global_step)
+  a_optimizer_col_2.apply_gradients(grad_var_2, global_step=global_step)
 
-  a_optimizer_col_2.minimize(col_2_loss, var_list=var_list_2, global_step=global_step)
+  # a_optimizer_col_2.minimize(col_2_loss, var_list=var_list_2, global_step=global_step)
 
   ret_dict['weights_col2_after'] = tf.get_collection('weights_col2')
   ret_dict['global_step'] = global_step
@@ -553,7 +545,7 @@ def buildModelAndTrain(images,out_locs,org_gt_coords, global_step):
 
   ret_dict['loss'] = res_aux['loss']
   # ret_dict['conv6'] = tf.as_string(conv6, scientific=None)
-  ret_dict['offset_gauss'] = tf.as_string(res_aux['res_steps'][FLAGS.steps - 3]['offset_gauss'], scientific=None)
+  ret_dict['offset_gauss'] = tf.as_string(res_aux['res_steps'][steps - 3]['offset_gauss'], scientific=None)
   # ret_dict['all_preds_1'] = tf.as_string(res_aux['all_preds_1'])
 
   return ret_dict

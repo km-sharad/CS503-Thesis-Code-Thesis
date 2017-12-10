@@ -342,8 +342,6 @@ def columnActivation(aug_x, column_num, fwd_dict):
     
     of_x = tf.multiply(tf.cast(offset_grid[0,:,:,:], tf.float32), offset_wts)
     of_y = tf.multiply(tf.cast(offset_grid[1,:,:,:], tf.float32), offset_wts)
-    print('shapes: ', offset_grid.get_shape().as_list(), offset_wts.get_shape().as_list(), \
-                        of_x.get_shape().as_list())
 
     of_x = tf.reduce_sum(of_x,axis=3)
     of_y = tf.reduce_sum(of_y,axis=3)
@@ -351,7 +349,6 @@ def columnActivation(aug_x, column_num, fwd_dict):
     po = tf.stack([of_x, of_y])
     po_shape = po.get_shape().as_list()
     po = tf.reshape(po, [po_shape[1], po_shape[2], po_shape[3], po_shape[0]])
-    print('po shape: ', po.get_shape().as_list())
 
     poc = tf.reduce_sum(tf.multiply(po,nw), axis=(1,2))
     poc_shape = poc.get_shape().as_list()
@@ -365,7 +362,6 @@ def columnActivation(aug_x, column_num, fwd_dict):
 
         # x_sans_xa = tf.slice(aug_x[0], [0,0,0,1], [x_shape[0], x_shape[1], x_shape[2], -1])
 
-    print(' pc poc shapes:', pc.get_shape().as_list(), poc.get_shape().as_list())
     offset_gauss = doOffset2GaussianForward(pc + poc, out_locs_rs, sigma, feat_size)
 
     if chained:
@@ -423,6 +419,8 @@ def getNormalizedLocationWeightsFast(w):
 
 def doOffset2GaussianForward(offset, locs, sigma, feat_size):
   #based on: https://en.wikipedia.org/wiki/Radial_basis_function_kernel
+
+  # print(tf.subtract(offset, locs[None,:,:,None]))
 
   feat_denom = tf.reduce_sum(tf.square(tf.subtract(offset, locs[None,:,:,None])), axis=2)
   # feat = tf.divide((feat_denom/2), tf.square(sigma))
