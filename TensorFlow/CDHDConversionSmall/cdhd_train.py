@@ -135,13 +135,11 @@ with tf.Session() as sess:
   # sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
 
   for epoch in xrange(max_steps):
-  # for epoch in xrange(200):
     start_time = time.time()
     anno_file_batch_rows = getImageMetaRecords() 
     print('epoch: ', epoch)
 
     for batch in xrange(len(anno_file_batch_rows)/batch_size):
-      # distorted_images, meta = cdhd_input.distorted_inputs(stats_dict, batch_size)
       distorted_images, meta = cdhd_input.distorted_inputs(stats_dict, batch_size, \
               anno_file_batch_rows[batch * batch_size : (batch * batch_size) + batch_size])
 
@@ -150,26 +148,28 @@ with tf.Session() as sess:
                             out_locs: meta['out_locs'],
                             org_gt_coords: meta['org_gt_coords']})
 
-      print('global_step 1: ', out_dict['global_step'])
-      print('global_step 2: %s' % tf.train.global_step(sess, global_step))
-      print('batch completed: ', batch)
+      # print('global_step 1: ', out_dict['global_step'])
+      print('global_step: %s' % tf.train.global_step(sess, global_step))
 
       # print('loss shape: ', out_dict['loss'].shape)
       print(batch, np.sum(out_dict['loss'], axis=0)[0,0,0])
+      
+      # for idx1 in xrange(len(out_dict['grad_var'])):
+      #   print('grad_var shape idx1: ', out_dict['grad_var'][idx1][0].shape, out_dict['grad_var'][idx1][1].shape)
 
-      assert not np.isnan((((out_dict['grad_var'])[0])[0]).all()), '*** NaN gradient'
-      assert not np.isinf((((out_dict['grad_var'])[0])[0]).all()), '*** INF gradient' 
+      for idx_a in xrange(len(out_dict['grad_var'])):
+        assert not np.isnan(out_dict['grad_var'][idx_a][0].all()), '*** NaN gradient'
+        assert not np.isinf(out_dict['grad_var'][idx_a][0].all()), '*** INF gradient'       
 
       for idx in xrange(len(out_dict['grad_var'])):
-
         if idx < 3:
           print('gradient val var: ', out_dict['grad_var'][idx][0][2][3][87][24])
           print('variable val var: ', out_dict['grad_var'][idx][1][2][3][87][24]) 
           print('weights_col2-before: ', out_dict['weights_col2_before'][idx][2][3][87][24])           
           print('weights_col2-after: ', out_dict['weights_col2_after'][idx][2][3][87][24])           
-        # else:
-        #   print('gradient val bias: ', out_dict['grad_var'][idx][0][2])
-        #   print('variable val bias: ', out_dict['grad_var'][idx][1][2])                                
+        else:
+          print('gradient val bias: ', out_dict['grad_var'][idx][0][21])
+          print('variable val bias: ', out_dict['grad_var'][idx][1][21])                                
 
     duration = time.time() - start_time
 

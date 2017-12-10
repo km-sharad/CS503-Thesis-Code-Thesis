@@ -428,8 +428,8 @@ def inference(images,out_locs,org_gt_coords):
     pre_activation = tf.nn.bias_add(conv, biases)
     conv6 = tf.nn.relu(pre_activation, name=scope.name)  
 
-    res_aux = doForwardPass(conv6, out_locs, org_gt_coords)
-    return res_aux
+  res_aux = doForwardPass(conv6, out_locs, org_gt_coords)
+  return res_aux
 
 def train(res_aux, global_step):
 
@@ -440,12 +440,6 @@ def train(res_aux, global_step):
   col_2_loss = res_aux['loss']
 
   # col_2_loss = np.sum(res_aux['loss'], axis=0)[0,0,0]
-
-  # a_optimizer_col_2 = tf.train.GradientDescentOptimizer(learning_rate=0.001)
-  # grad_var = a_optimizer_col_2.compute_gradients(col_2_loss, var_list=tf.get_collection('weights_col2'))
-  # ret_dict['grad_var'] = grad_var
-  # a_optimizer_col_2.apply_gradients(grad_var)
-
 
   # a_optimizer_col_2.minimize(col_2_loss, var_list=tf.get_collection(tf.GraphKeys.VARIABLES))
 
@@ -465,8 +459,14 @@ def train(res_aux, global_step):
   var_list_2 = []
   var_list_2 = var_list_2 + tf.get_collection('weights_col2')
   var_list_2 = var_list_2 + tf.get_collection('biases_col2')
-  var_list_2 = var_list_2 + tf.get_collection('weights') 
-  var_list_2 = var_list_2 + tf.get_collection('biases')
+  # var_list_2 = var_list_2 + tf.get_collection('weights') 
+  # var_list_2 = var_list_2 + tf.get_collection('biases')
+
+  # var_list_2 = var_list_2 + tf.get_collection_ref('weights_col2')
+  # var_list_2 = var_list_2 + tf.get_collection_ref('biases_col2')  
+
+  #sanity check
+  assert tf.get_collection('weights_col2')[0].graph is tf.get_default_graph(), " weights from default graph"
 
   grad_var_2 = a_optimizer_col_2.compute_gradients(col_2_loss, var_list_2)
   # grad_var_2 = a_optimizer_col_2.compute_gradients(col_2_loss, var_list=tf.get_collection('weights_col2'))
@@ -485,9 +485,8 @@ def train(res_aux, global_step):
   ret_dict['weights_col2_after'] = tf.get_collection('weights_col2')
   ret_dict['global_step'] = global_step
 
-  '''
   col_1_loss = (res_aux['res_steps'][2])['x'][4]
-  a_optimizer_col_1 = tf.train.AdamOptimizer()
+  # a_optimizer_col_1 = tf.train.AdamOptimizer()
   # a_optimizer_col_1.__init__(
   #   learning_rate=0.00001,
   #   beta1=0.9,
@@ -502,15 +501,15 @@ def train(res_aux, global_step):
   var_list_1 = []
   var_list_1 = var_list_1 + tf.get_collection('weights_col1')
   var_list_1 = var_list_1 + tf.get_collection('biases_col1')
-  var_list_1 = var_list_1 + tf.get_collection('weights') 
-  var_list_1 = var_list_1 + tf.get_collection('biases')
+  # var_list_1 = var_list_1 + tf.get_collection('weights') 
+  # var_list_1 = var_list_1 + tf.get_collection('biases')
 
   grad_var_1 = a_optimizer_col_1.compute_gradients(col_1_loss, var_list=tf.get_collection('weights_col1'))
-  a_optimizer_col_1.apply_gradients(grad_var_1)  
-  # a_optimizer_col_1.minimize(col_1_loss, var_list=var_list_1)
+  a_optimizer_col_1.apply_gradients(grad_var_1, global_step=global_step)  
+  # a_optimizer_col_1.minimize(col_1_loss, var_list=var_list_1, global_step=global_step)
 
   col_0_loss = (res_aux['res_steps'][1])['x'][4]
-  a_optimizer_col_0 = tf.train.AdamOptimizer()
+  # a_optimizer_col_0 = tf.train.AdamOptimizer()
   # a_optimizer_col_0.__init__(
   #   learning_rate=0.00001,
   #   beta1=0.9,
@@ -528,16 +527,16 @@ def train(res_aux, global_step):
   var_list_0 = var_list_0 + tf.get_collection('weights') 
   var_list_0 = var_list_0 + tf.get_collection('biases')
 
-  grad_var_0 = a_optimizer_col_0.compute_gradients(col_0_loss, var_list=tf.get_collection('weights_col0'))
-  a_optimizer_col_0.apply_gradients(grad_var_0)  
-  # a_optimizer_col_0.minimize(col_0_loss, var_list=var_list_0)
-  '''
-
-
-  return ret_dict
+  # grad_var_0 = a_optimizer_col_0.compute_gradients(col_0_loss, var_list=tf.get_collection('weights_col0'))
+  # a_optimizer_col_0.apply_gradients(grad_var_0, global_step=global_step)  
+  a_optimizer_col_0.minimize(col_0_loss, var_list=var_list_0, global_step=global_step)
+  
 
   # for op in tf.get_default_graph().get_operations():
   #   print str(op.name) 
+
+  return ret_dict
+
 
 def buildModelAndTrain(images,out_locs,org_gt_coords, global_step):
   res_aux = inference(images,out_locs,org_gt_coords)
