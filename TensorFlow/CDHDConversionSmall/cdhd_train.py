@@ -117,17 +117,21 @@ org_gt_coords = tf.placeholder(dtype=tf.float32, shape=[batch_size, 2])
 
 stats_dict = computeNormalizationParameters() 
 
-# logits = cdhd.buildModelAndTrain(images,out_locs,org_gt_coords, global_step)
-
 res_aux = cdhd.inference(images,out_locs,org_gt_coords)
 
 ret_dict = cdhd.train(res_aux, global_step)
 
-# with tf.Graph().as_default():
 init = tf.global_variables_initializer()
+
+saver = tf.train.Saver()
+
 with tf.Session() as sess:
   writer = tf.summary.FileWriter('./graphs', sess.graph)
   sess.run(init)
+
+  # Restore variables from disk.
+  saver.restore(sess, "./ckpt/model0.ckpt")
+  print("Model restored.")
 
   # Following two lines are for debugging
   # Use <code> python cdhd_train.py --debug </code> command to debug
@@ -139,7 +143,8 @@ with tf.Session() as sess:
     anno_file_batch_rows = getImageMetaRecords() 
     print('epoch: ', epoch)
 
-    for batch in xrange(len(anno_file_batch_rows)/batch_size):
+    # for batch in xrange(len(anno_file_batch_rows)/batch_size):
+    for batch in xrange(2):
       distorted_images, meta = cdhd_input.distorted_inputs(stats_dict, batch_size, \
               anno_file_batch_rows[batch * batch_size : (batch * batch_size) + batch_size])
 
@@ -169,6 +174,11 @@ with tf.Session() as sess:
       #   else:
       #     print('gradient val bias: ', out_dict['grad_var'][idx][0][21])
       #     print('variable val bias: ', out_dict['grad_var'][idx][1][21])                                
+
+    # Save the variables to disk.
+    ckpt_file = './ckpt/model' + str(epoch) + '.ckpt'
+    save_path = saver.save(sess, ckpt_file)
+    print("Model saved in file: %s" % save_path)
 
     duration = time.time() - start_time
 
