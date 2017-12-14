@@ -8,22 +8,13 @@ from math import exp
 from scipy.misc import imresize
 from scipy.ndimage import zoom
 
-FLAGS = tf.app.flags.FLAGS
-
-#server
-#tf.app.flags.DEFINE_string('data_dir', '/home/sharad/CS503-Thesis/car_dataset/', """Path to the CDHD data directory.""")
-
-#local
-#tf.app.flags.DEFINE_string('data_dir', '../../../../car_dataset/', """Path to the CDHD data directory.""")
-#tf.app.flags.DEFINE_integer('total_visible_training_images', 1920,
-#                              """Number of training images where car door handle is visible.""")
-tf.app.flags.DEFINE_string('max_im_side', 500, """Default max image side.""")
-tf.app.flags.DEFINE_string('init_padding', 32, """Initial image padding pixels.""")
-tf.app.flags.DEFINE_string('min_side', 64, """min_side.""")
-tf.app.flags.DEFINE_string('padding_type', 'replicate', """padding_type.""")
-tf.app.flags.DEFINE_string('start_offset', 16, """start_offset.""")
-tf.app.flags.DEFINE_string('output_stride', 16, """output_stride.""")
-tf.app.flags.DEFINE_string('scaling_factor', round(500/float(3), 4), """scaling_factor""")
+data_dir = '../../../../car_dataset/'
+max_im_side = 500
+init_padding = 32
+min_side = 64
+start_offset = 16
+output_stride = 16
+scaling_factor = round(500/float(3), 4)
 
 def distorted_inputs(stats_dict, batch_size, anno_file_batch_rows):
   """Construct distorted input for CIFAR training using the Reader ops.
@@ -58,8 +49,8 @@ def distorted_inputs(stats_dict, batch_size, anno_file_batch_rows):
   padded_images, cat_padding = concatWithPadding(np.asarray(images), np.asarray(im_sizes))
   padding = padding + cat_padding
 
-  x = np.arange(FLAGS.start_offset, padded_images.shape[1], FLAGS.output_stride)
-  y = np.arange(FLAGS.start_offset, padded_images.shape[2], FLAGS.output_stride)
+  x = np.arange(start_offset, padded_images.shape[1], output_stride)
+  y = np.arange(start_offset, padded_images.shape[2], output_stride)
 
 
   out_locs_list = []
@@ -69,8 +60,8 @@ def distorted_inputs(stats_dict, batch_size, anno_file_batch_rows):
 
   out_locs = np.asarray(out_locs_list)
 
-  gt_coords = np.round(np.divide(np.subtract(np.asarray(target_locs),FLAGS.start_offset), 
-                  float((FLAGS.output_stride + 1))),2)
+  gt_coords = np.round(np.divide(np.subtract(np.asarray(target_locs),start_offset), 
+                  float((output_stride + 1))),2)
   org_gt_coords = np.asarray(target_locs)
 
   '''
@@ -79,9 +70,9 @@ def distorted_inputs(stats_dict, batch_size, anno_file_batch_rows):
   aug_target_loc = aug_target_loc ./ opts.scaling_factor;
   '''
 
-  out_locs = np.round(np.divide(out_locs, FLAGS.scaling_factor),4)
-  org_gt_coords = np.round(np.divide(org_gt_coords, FLAGS.scaling_factor),4)
-  aug_target_loc = np.round(np.divide(aug_target_loc, FLAGS.scaling_factor),4)
+  out_locs = np.round(np.divide(out_locs, scaling_factor),4)
+  org_gt_coords = np.round(np.divide(org_gt_coords, scaling_factor),4)
+  aug_target_loc = np.round(np.divide(aug_target_loc, scaling_factor),4)
 
   meta_dict = {}
   meta_dict['margins'] = []
@@ -96,8 +87,6 @@ def distorted_inputs(stats_dict, batch_size, anno_file_batch_rows):
   #meta_dict['im_org_scaled'] = ?;
   #meta_dict['torso_height'] = ?;
 
-  # images_tensor = tf.convert_to_tensor(padded_images)
-
   # return images_tensor, meta_dict
   return padded_images, meta_dict
 
@@ -108,7 +97,7 @@ def getImage(meta_rec, stats_dict):
     im_meta_dict['img_size'] = [int(i) for i in meta_rec[3].split(',')]
     im_meta_dict['bbox'] = [int(i) for i in meta_rec[8][0:len(meta_rec[8]) - 2].split(',')]    
 
-    image = Image.open(FLAGS.data_dir + meta_rec[2])
+    image = Image.open(data_dir + meta_rec[2])
 
     # print('image name: ', meta_rec[2])
     # print('im_meta_dict[img_size]: ', im_meta_dict['img_size'][0], im_meta_dict['img_size'][1])
@@ -123,7 +112,7 @@ def getImage(meta_rec, stats_dict):
     im_org = im      
 
     #Compute the default scaling
-    scale = round(FLAGS.max_im_side/float(np.amax(im.shape)),4)    
+    scale = round(max_im_side/float(np.amax(im.shape)),4)    
 
     [im, target_loc, aug_scale] = getAugmentedImage(im, im_meta_dict)
 
@@ -139,20 +128,20 @@ def getImage(meta_rec, stats_dict):
     im_size = np.asarray(im.shape)
 
     padding = np.zeros(4) #T/B/L/R - top, bottom, left, right
-    padding = padding + FLAGS.init_padding;
+    padding = padding + init_padding;
 
-    target_loc = target_loc + FLAGS.init_padding
-    im_size[0] = im_size[0] + (2 * FLAGS.init_padding)
-    im_size[1] = im_size[1] + (2 * FLAGS.init_padding)
+    target_loc = target_loc + init_padding
+    im_size[0] = im_size[0] + (2 * init_padding)
+    im_size[1] = im_size[1] + (2 * init_padding)
 
     #Pad if smaller than minimum size
-    min_side_padding = np.maximum(np.subtract(FLAGS.min_side - im_size[0:2],np.zeros(2)),np.zeros(2))
+    min_side_padding = np.maximum(np.subtract(min_side - im_size[0:2],np.zeros(2)),np.zeros(2))
     padding[1] = padding[1] + min_side_padding[0]
     padding[3] = padding[3] + min_side_padding[1]
     im_size[0] = im_size[0] + min_side_padding[0]
     im_size[1] = im_size[1] + min_side_padding[1]
 
-    size_padding = computePaddingForImage(im_size, FLAGS.output_stride)
+    size_padding = computePaddingForImage(im_size, output_stride)
     padding[1] = padding[1] + size_padding[0]
     padding[3] = padding[3] + size_padding[1]
     im_size[0] = im_size[0] + size_padding[0]

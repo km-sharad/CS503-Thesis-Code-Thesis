@@ -143,8 +143,7 @@ with tf.Session() as sess:
     anno_file_batch_rows = getImageMetaRecords() 
     print('epoch: ', epoch)
 
-    # for batch in xrange(len(anno_file_batch_rows)/batch_size):
-    for batch in xrange(2):
+    for batch in xrange(len(anno_file_batch_rows)/batch_size):
       distorted_images, meta = cdhd_input.distorted_inputs(stats_dict, batch_size, \
               anno_file_batch_rows[batch * batch_size : (batch * batch_size) + batch_size])
 
