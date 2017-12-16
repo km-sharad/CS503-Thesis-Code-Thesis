@@ -152,12 +152,17 @@ with tf.Session() as sess:
       # print('global_step: %s' % tf.train.global_step(sess, global_step))
 
       # print('loss shape: ', out_dict['loss'].shape)
-      print(batch, np.sum(out_dict['loss'], axis=0)[0,0,0])
+      # print(batch, np.sum(out_dict['loss'], axis=0)[0,0,0])
+      print(batch, out_dict['loss'])
+      # print(batch, np.sum(out_dict['loss'], axis=0))
+
+      # print(np.sum(out_dict['seq2'], axis=0)[0,0,0])
+      # print(np.sum(out_dict['seq1'], axis=0)[0,0,0])
 
     # Save the variables to disk.
-    # ckpt_file = './ckpt/model' + str(epoch) + '.ckpt'
-    # save_path = saver.save(sess, ckpt_file)
-    # print("Model saved in file: %s" % save_path)
+    ckpt_file = './ckpt/model' + str(epoch) + '.ckpt'
+    save_path = saver.save(sess, ckpt_file)
+    print("Model saved in file: %s" % save_path)
 
     duration = time.time() - start_time
 
