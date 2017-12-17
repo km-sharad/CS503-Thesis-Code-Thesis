@@ -9,7 +9,7 @@ import cdhd_input
 from tensorflow.python import debug as tf_debug
 
 total_visible_training_images = 1920    # Number of training images where car door handle is visible
-max_steps = 26000                       # Number of batches to run
+max_steps = 2600                        # Number of batches to run
 stats_sample_size = 200                 # Number of images to calculate mean and sd
 batch_size = 10                         # Number of images to process in a batch
 
@@ -120,7 +120,7 @@ ret_dict = cdhd.train(res_aux, global_step)
 
 init = tf.global_variables_initializer()
 
-saver = tf.train.Saver()
+saver = tf.train.Saver(max_to_keep=0)
 
 with tf.Session() as sess:
   writer = tf.summary.FileWriter('./graphs', sess.graph)
@@ -151,13 +151,12 @@ with tf.Session() as sess:
 
       # print('global_step: %s' % tf.train.global_step(sess, global_step))
 
-      # print('loss shape: ', out_dict['loss'].shape)
-      # print(batch, np.sum(out_dict['loss'], axis=0)[0,0,0])
-      print(batch, out_dict['loss'])
       # print(batch, np.sum(out_dict['loss'], axis=0))
+      print(str(batch) + ' ' + str(out_dict['loss']))
 
-      # print(np.sum(out_dict['seq2'], axis=0)[0,0,0])
-      # print(np.sum(out_dict['seq1'], axis=0)[0,0,0])
+      out_f = open('out_file.txt', 'a+')
+      out_f.write(str(epoch) + ' ' + str(batch) + ' ' + str(out_dict['loss']) + '\n')
+      out_f.close()
 
     # Save the variables to disk.
     ckpt_file = './ckpt/model' + str(epoch) + '.ckpt'

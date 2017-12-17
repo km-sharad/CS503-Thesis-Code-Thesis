@@ -436,23 +436,21 @@ def train(res_aux, global_step):
   # print(tf.get_collection('weights_col2')[0].get_shape().as_list())
 
   ret_dict = {}
+  ret_dict['loss'] = tf.reduce_sum(res_aux['loss'])
 
-  # col_2_loss = res_aux['loss']
-  col_2_loss = np.sum(res_aux['loss'], axis=0)[0,0,0,0]
+  col_2_loss = tf.reduce_sum(res_aux['loss'])
 
-  ret_dict['loss'] = col_2_loss
-
-  a_optimizer_col_2 = tf.train.AdamOptimizer()
-  a_optimizer_col_2.__init__(
-    learning_rate=0.001,
-    beta1=0.9,
-    beta2=0.999,
-    epsilon=1e-08,
-    use_locking=False,
-    name='Adam_2')
+  # a_optimizer_col_2 = tf.train.AdamOptimizer()
+  # a_optimizer_col_2.__init__(
+  #   learning_rate=0.00001,
+  #   beta1=0.9,
+  #   beta2=0.999,
+  #   epsilon=1e-08,
+  #   use_locking=False,
+  #   name='Adam_2')
 
   # a_optimizer_col_2 = tf.train.GradientDescentOptimizer(learning_rate=0.001) 
-  # a_optimizer_col_2 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003) 
+  a_optimizer_col_2 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003) 
 
   var_list_2 = []
   var_list_2 = var_list_2 + tf.get_collection('weights_col2')
@@ -463,20 +461,19 @@ def train(res_aux, global_step):
   minimizer_col2 = a_optimizer_col_2.minimize(col_2_loss, var_list=var_list_2, global_step=global_step)
   ret_dict['minimizer_col2'] = minimizer_col2
 
-  # col_1_loss = (res_aux['res_steps'][2])['x'][4]
-  col_1_loss = np.sum((res_aux['res_steps'][2])['x'][4], axis=0)[0,0,0,0]
+  col_1_loss = tf.reduce_sum((res_aux['res_steps'][2])['x'][4])
 
-  a_optimizer_col_1 = tf.train.AdamOptimizer()
-  a_optimizer_col_1.__init__(
-    learning_rate=0.001,
-    beta1=0.9,
-    beta2=0.999,
-    epsilon=1e-08,
-    use_locking=False,
-    name='Adam_1')
+  # a_optimizer_col_1 = tf.train.AdamOptimizer()
+  # a_optimizer_col_1.__init__(
+  #   learning_rate=0.00001,
+  #   beta1=0.9,
+  #   beta2=0.999,
+  #   epsilon=1e-08,
+  #   use_locking=False,
+  #   name='Adam_1')
 
   # a_optimizer_col_1 = tf.train.GradientDescentOptimizer(learning_rate=0.001)
-  # a_optimizer_col_1 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003)  
+  a_optimizer_col_1 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003)  
 
   var_list_1 = []
   var_list_1 = var_list_1 + tf.get_collection('weights_col1')
@@ -487,20 +484,19 @@ def train(res_aux, global_step):
   minimizer_col1 = a_optimizer_col_1.minimize(col_1_loss, var_list=var_list_1, global_step=global_step)
   ret_dict['minimizer_col1'] = minimizer_col1
 
-  # col_0_loss = (res_aux['res_steps'][1])['x'][4]
-  col_0_loss = np.sum((res_aux['res_steps'][1])['x'][4], axis=0)[0,0,0,0]
+  col_0_loss = tf.reduce_sum((res_aux['res_steps'][1])['x'][4])
 
-  a_optimizer_col_0 = tf.train.AdamOptimizer()
-  a_optimizer_col_0.__init__(
-    learning_rate=0.001,
-    beta1=0.9,
-    beta2=0.999,
-    epsilon=1e-08,
-    use_locking=False,
-    name='Adam_0')
+  # a_optimizer_col_0 = tf.train.AdamOptimizer()
+  # a_optimizer_col_0.__init__(
+  #   learning_rate=0.00001,
+  #   beta1=0.9,
+  #   beta2=0.999,
+  #   epsilon=1e-08,
+  #   use_locking=False,
+  #   name='Adam_0')
 
   # a_optimizer_col_0 = tf.train.GradientDescentOptimizer(learning_rate=0.001) 
-  # a_optimizer_col_0 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003) 
+  a_optimizer_col_0 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003) 
   
   var_list_0 = []
   var_list_0 = var_list_0 + tf.get_collection('weights_col0')
