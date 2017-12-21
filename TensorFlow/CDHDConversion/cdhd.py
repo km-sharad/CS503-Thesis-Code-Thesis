@@ -72,8 +72,8 @@ def getNormalizedLocationWeightsFast(w):
 
 def doOffset2GaussianForward(offset, locs, sigma):
   #based on: https://en.wikipedia.org/wiki/Radial_basis_function_kernel
-  feat_denom = tf.reduce_sum(tf.square(tf.subtract(offset, locs[None,:,:,None])), axis=2)
-  feat = tf.divide((tf.divide(feat_denom,2)), tf.square(sigma))
+  feat_numer = tf.reduce_sum(tf.square(tf.subtract(offset, locs[None,:,:,None])), axis=2)
+  feat = tf.divide((tf.divide(feat_numer,2)), tf.square(sigma))
   feat = tf.exp(-feat)
   return feat  
 
@@ -156,8 +156,6 @@ def columnActivation(aug_x, column_num, fwd_dict):
     pc = tf.reduce_sum(pc, axis=1)
     pc = tf.reshape(pc, [tf.shape(pc)[0], 1, tf.shape(pc)[1], 1])
 
-    #Predict the offset (section 3.3 of paper).
-    #Use the offset grid to compute the offset.
     offset_grid = fwd_dict['offset_grid']
     num_offset_channels = offset_grid.get_shape().as_list()[2]
     offset_channels = tf.convert_to_tensor(np.arange(grid_stride) + 1)
@@ -171,8 +169,6 @@ def columnActivation(aug_x, column_num, fwd_dict):
     offset_wts = tf.exp(offset_wts)
     sum_offset_wts = tf.reduce_sum(offset_wts, axis=3)
     offset_wts = tf.divide(offset_wts, sum_offset_wts[:,:,:,None])  #o(j) from section 3.3 of paper
-
-    # offset_wts = tf.nn.softmax(offset_wts)
 
     offset_grid = tf.reshape(offset_grid, [2, 1, 1, grid_stride])
 
@@ -188,15 +184,16 @@ def columnActivation(aug_x, column_num, fwd_dict):
     #po = p(i) of eq 2 from section 3.3 of paper
     po = tf.concat(3, [of_x, of_y], name="conct_of_x_of_y_into_po")
 
-    #poc = P of eq 1 from section 3.2 of paper
     poc = tf.reduce_sum(tf.multiply(po,nw), axis=(1,2))
     poc = tf.reshape(poc, [tf.shape(poc)[0], 1, tf.shape(poc)[1], 1])
 
+    # res['poc_shape'] = tf.shape(poc)    #DELETE
+
     sigma = tf.cast(15, tf.float32)   # RBF sigma
 
+    #offset_gauss = P(s) of eq 1 from section 3.2 of paper
     offset_gauss = doOffset2GaussianForward(tf.add(pc, poc), out_locs_rs, sigma)
 
-    res['offset_gauss'] = tf.shape(offset_gauss)    #DELETE
     offset_gauss = tf.reshape(offset_gauss, [tf.shape(a)[0], tf.shape(a)[1], tf.shape(a)[2], 1])
 
     if chained:
@@ -218,7 +215,7 @@ def columnActivation(aug_x, column_num, fwd_dict):
     #indiv_nw
     indiv_nw = tf.reshape(nw, [tf.shape(nw)[0], tf.shape(nw)[1] * tf.shape(nw)[2], tf.shape(nw)[3], 1])
 
-    #TODO: check if it's ok to multiply current iteration's preds with ptrv iter weights
+    #TODO: check if it's ok to multiply current iteration's preds with prev iter weights
     #TODO: if learning does not converge, check how close this formula is to formula (4) in paper
     loss = prev_loss + (cent_loss + offs_loss * offset_pred_weight) * prev_pred_weight;    
 
@@ -278,8 +275,6 @@ def doForwardPass(x, out_locs, gt_loc):
   fwd_dict['out_locs'] = out_locs
   fwd_dict['offset_grid'] = offset_grid
 
-  # pdb.set_trace()
-
   tf.assert_equal(tf.convert_to_tensor(tf.shape(out_locs)[0]), \
                   tf.multiply(tf.convert_to_tensor(tf.shape(x)[1]),\
                               tf.convert_to_tensor(tf.shape(x)[2])))                        
@@ -306,7 +301,7 @@ def doForwardPass(x, out_locs, gt_loc):
                     tf.shape(x_sans_xa)[2], 1])
 
     #combining activation of sixth convolution with output of previous layer
-    #TODO: not required for last column
+    #TODO: check if required for last column
     aug_x[0] = tf.concat(3, [out_x[0],x_sans_xa], name='concat_x_and_a_sans_xa') #xx
 
     aug_x[1] = out_x[1]     #pc + poc
@@ -330,7 +325,6 @@ def doForwardPass(x, out_locs, gt_loc):
   offs_loss, offs_residue = computePredictionLossSL1(res_step['x'][2], gt_loc, transition_dist)
 
   offs_loss = tf.reduce_sum(tf.multiply(offs_loss, res_step['x'][3]), axis=1)
-  # offs_loss = tf.reshape(offs_loss, [offs_loss.get_shape().as_list()[0],1,1,1])
   offs_loss = tf.reshape(offs_loss, [tf.shape(offs_loss)[0],1,1,1])
 
   loss = tf.add(tf.add(target_loss, res_step['x'][4]),
@@ -437,6 +431,7 @@ def train(res_aux, global_step):
 
   ret_dict = {}
   ret_dict['loss'] = tf.reduce_sum(res_aux['loss'])
+  # ret_dict['poc_shape'] = res_aux['res_steps'][2]['poc_shape']  #DELETE
 
   col_2_loss = tf.reduce_sum(res_aux['loss'])
 

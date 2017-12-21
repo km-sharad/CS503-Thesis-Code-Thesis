@@ -141,6 +141,7 @@ def getImage(meta_rec, stats_dict):
     im_size[0] = im_size[0] + min_side_padding[0]
     im_size[1] = im_size[1] + min_side_padding[1]
 
+    #Pad the image if necessary to get the final size correct
     size_padding = computePaddingForImage(im_size, output_stride)
     padding[1] = padding[1] + size_padding[0]
     padding[3] = padding[3] + size_padding[1]
@@ -153,6 +154,8 @@ def getImage(meta_rec, stats_dict):
     im = np.pad(im, padding_tuple,'edge')
 
     assert(np.array_equal(im_size, np.asarray(im.shape))), "assertion error in image preprocessing"
+
+    # NOTE: Only image is padded, aug_target_loc is not padded, why?
 
     final_scale = aug_scale * scale
 
@@ -199,6 +202,7 @@ def lrFlipCDHDDataRecord(im, im_meta_dict):
 
   return im, im_meta_dict
 
+# Pads images such that all images in batch has greatest length and height among all images in the batch 
 def concatWithPadding(images, im_sizes):
   max_dim = np.amax(im_sizes, axis=0)[0:2]
   paddings = np.zeros([len(images), 4])

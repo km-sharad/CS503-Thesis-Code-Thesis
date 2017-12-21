@@ -151,8 +151,8 @@ with tf.Session() as sess:
 
       # print('global_step: %s' % tf.train.global_step(sess, global_step))
 
-      # print(batch, np.sum(out_dict['loss'], axis=0))
       print(str(batch) + ' ' + str(out_dict['loss']))
+      # print('poc_shape: ', out_dict['poc_shape'])
 
       out_f = open('out_file.txt', 'a+')
       out_f.write(str(epoch) + ' ' + str(batch) + ' ' + str(out_dict['loss']) + '\n')
