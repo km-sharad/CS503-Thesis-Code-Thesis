@@ -95,11 +95,11 @@ def getImage(meta_rec, stats_dict):
 
     image = Image.open(data_dir + meta_rec[2])
 
-    try:
-      im = np.array(image)
-    except ValueError:
-      im = np.dstack([np.array(image.getdata()).reshape(image.size[0], image.size[1])]*3)
-      print('exp: ', meta_rec[2])
+    im = np.array(image)
+    if(len(im.shape) == 2):
+      #monochrome image, add the third channel
+      im = np.stack((image,)*3)
+      print('mono image: ', meta_rec[2])
 
     im_org = im     
 
