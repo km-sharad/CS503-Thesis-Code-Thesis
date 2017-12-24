@@ -7,6 +7,7 @@ from math import log
 from math import exp
 from scipy.misc import imresize
 from scipy.ndimage import zoom
+import sys
 
 data_dir = '../../../../car_dataset/'
 max_im_side = 500
@@ -42,16 +43,14 @@ def distorted_inputs(stats_dict, batch_size, anno_file_batch_rows):
 
   im_sizes = np.asarray([info['im_size'] for info in infos])
   padding = np.asarray([info['padding'] for info in infos])
-  aug_target_loc = np.asarray([info['aug_target_loc'] for info in infos])
   final_scale = np.asarray([info['final_scale'] for info in infos])
   im_org = np.asarray([info['im_org'] for info in infos])
 
   padded_images, cat_padding = concatWithPadding(np.asarray(images), np.asarray(im_sizes))
   padding = padding + cat_padding
 
-  x = np.arange(start_offset, padded_images.shape[1], output_stride)
-  y = np.arange(start_offset, padded_images.shape[2], output_stride)
-
+  x = np.arange(start_offset, padded_images.shape[2], output_stride)
+  y = np.arange(start_offset, padded_images.shape[1], output_stride)
 
   out_locs_list = []
   for xi in xrange(x.shape[0]):
@@ -72,7 +71,6 @@ def distorted_inputs(stats_dict, batch_size, anno_file_batch_rows):
 
   out_locs = np.round(np.divide(out_locs, scaling_factor),4)
   org_gt_coords = np.round(np.divide(org_gt_coords, scaling_factor),4)
-  aug_target_loc = np.round(np.divide(aug_target_loc, scaling_factor),4)
 
   meta_dict = {}
   meta_dict['margins'] = []
@@ -82,12 +80,10 @@ def distorted_inputs(stats_dict, batch_size, anno_file_batch_rows):
   meta_dict['scale'] = final_scale
   meta_dict['gt_coords'] = gt_coords
   meta_dict['org_gt_coords'] = org_gt_coords
-  meta_dict['aug_target_loc'] = aug_target_loc;
   meta_dict['im_org'] = im_org;
   #meta_dict['im_org_scaled'] = ?;
   #meta_dict['torso_height'] = ?;
 
-  # return images_tensor, meta_dict
   return padded_images, meta_dict
 
 def getImage(meta_rec, stats_dict):
@@ -99,43 +95,40 @@ def getImage(meta_rec, stats_dict):
 
     image = Image.open(data_dir + meta_rec[2])
 
-    # print('image name: ', meta_rec[2])
-    # print('im_meta_dict[img_size]: ', im_meta_dict['img_size'][0], im_meta_dict['img_size'][1])
-    # print('image size: ', image.size[0], image.size[1])
-    # print('co-ords: x-y', im_meta_dict['gt_x_coord'], im_meta_dict['gt_y_coord'])
-
     try:
-      im = np.array(image.getdata()).reshape(image.size[0], image.size[1], 3)
+      im = np.array(image)
     except ValueError:
       im = np.dstack([np.array(image.getdata()).reshape(image.size[0], image.size[1])]*3)
+      print('exp: ', meta_rec[2])
 
-    im_org = im      
+    im_org = im     
 
     #Compute the default scaling
     scale = round(max_im_side/float(np.amax(im.shape)),4)    
 
     [im, target_loc, aug_scale] = getAugmentedImage(im, im_meta_dict)
 
-    aug_target_loc = target_loc
     im_org_scaled = imresize(im, scale,interp='bilinear')
     im = im_org_scaled
     target_loc[0] = int(round(target_loc[0] * scale,0))    
-    target_loc[1] = int(round(target_loc[1] * scale,0))    
+    target_loc[1] = int(round(target_loc[1] * scale,0))   
 
-    im = np.subtract(im, stats_dict['mean_pixel'])
-    im = np.divide(im, stats_dict['std_pixel'])
+    #TODO: Bugfix - this normalizaton is not working  
+    # im = np.subtract(im, stats_dict['mean_pixel'])
+    # im = np.divide(im, stats_dict['std_pixel'])
 
     im_size = np.asarray(im.shape)
-
+    
     padding = np.zeros(4) #T/B/L/R - top, bottom, left, right
-    padding = padding + init_padding;
 
+    padding = padding + init_padding;
     target_loc = target_loc + init_padding
-    im_size[0] = im_size[0] + (2 * init_padding)
-    im_size[1] = im_size[1] + (2 * init_padding)
+    im_size[0] = im_size[0] + (2 * init_padding)    #Y-axis
+    im_size[1] = im_size[1] + (2 * init_padding)    #X-axis
 
     #Pad if smaller than minimum size
     min_side_padding = np.maximum(np.subtract(min_side - im_size[0:2],np.zeros(2)),np.zeros(2))
+
     padding[1] = padding[1] + min_side_padding[0]
     padding[3] = padding[3] + min_side_padding[1]
     im_size[0] = im_size[0] + min_side_padding[0]
@@ -150,24 +143,35 @@ def getImage(meta_rec, stats_dict):
 
     padding = padding.astype(int)
 
+    # NOTE: For some images, the padding fails. Debug why
     padding_tuple = ((padding[0],padding[1]), (padding[2],padding[3]), (0,0))
-    im = np.pad(im, padding_tuple,'edge')
+    try:
+      im = np.pad(im, padding_tuple,'edge')
+      assert(np.array_equal(im_size, np.asarray(im.shape))), "assertion error in image preprocessing"
+    except ValueError:
+      # Assertion will fail in this case
+      print('padding error for image: ', meta_rec[2])
 
-    assert(np.array_equal(im_size, np.asarray(im.shape))), "assertion error in image preprocessing"
-
-    # NOTE: Only image is padded, aug_target_loc is not padded, why?
+    # Question: Only image is padded, target_loc is not padded, why?
+    # Answer: Because zero padding is done in bottom and right side of the image
 
     final_scale = aug_scale * scale
 
     info = {}
     info['aug_scale'] = aug_scale
-    info['aug_target_loc'] = aug_target_loc
     info['im_org'] = im_org
     info['im_size'] = im_size
     info['final_scale'] = final_scale
     #info.torso_height = ?
     #info.im_org_scaled = ?
     info['padding'] = padding
+
+    #IMPORTANT NOTE: Since in tf and np, the first dimension is height and second width,
+    #swap x and y coordinates for target location
+    #For more info: 'Data formats' section in https://www.tensorflow.org/performance/performance_guide#use_nchw_imag
+    temp_coord = target_loc[0]
+    target_loc[0] = target_loc[1]
+    target_loc[1] = temp_coord
 
     return [im, target_loc, info]
 
@@ -193,18 +197,19 @@ def lrFlipCDHDDataRecord(im, im_meta_dict):
     im = np.fliplr(im)
 
     #change x-coordinate of ground truth after flipping image
-    im_meta_dict['gt_x_coord'] = im.shape[0] - im_meta_dict['gt_x_coord']
+    im_meta_dict['gt_x_coord'] = im.shape[1] - im_meta_dict['gt_x_coord']
 
     #change x-coordinate of bounding box after flipping image
     temp = im_meta_dict['bbox'][0]
-    im_meta_dict['bbox'][0] = im.shape[0] - im_meta_dict['bbox'][2]
-    im_meta_dict['bbox'][2] = im.shape[0] - temp
+    im_meta_dict['bbox'][0] = im.shape[1] - im_meta_dict['bbox'][2]
+    im_meta_dict['bbox'][2] = im.shape[1] - temp
 
   return im, im_meta_dict
 
 # Pads images such that all images in batch has greatest length and height among all images in the batch 
 def concatWithPadding(images, im_sizes):
   max_dim = np.amax(im_sizes, axis=0)[0:2]
+
   paddings = np.zeros([len(images), 4])
   padded_images = []
 
