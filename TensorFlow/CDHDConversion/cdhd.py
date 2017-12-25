@@ -70,11 +70,12 @@ def getNormalizedLocationWeightsFast(w):
   nw = tf.divide(ew,sew[:,None,None,:])
   return nw
 
-def doOffset2GaussianForward(offset, locs, sigma):
+def doOffset2GaussianForward(offset, locs, sigma, feat_size):
   #based on: https://en.wikipedia.org/wiki/Radial_basis_function_kernel
   feat_numer = tf.reduce_sum(tf.square(tf.subtract(offset, locs[None,:,:,None])), axis=2)
   feat = tf.divide((tf.divide(feat_numer,2)), tf.square(sigma))
   feat = tf.exp(-feat)
+  feat = tf.reshape(feat, feat_size)
   return feat  
 
 def computePredictionLossSL1(pred, target, transition_dist):
@@ -192,7 +193,8 @@ def columnActivation(aug_x, column_num, fwd_dict):
     sigma = tf.cast(15, tf.float32)   # RBF sigma
 
     #offset_gauss = P(s) of eq 1 from section 3.2 of paper
-    offset_gauss = doOffset2GaussianForward(tf.add(pc, poc), out_locs_rs, sigma)
+    feat_size = [tf.shape(a)[0], tf.shape(a)[1], tf.shape(a)[2], 1]
+    offset_gauss = doOffset2GaussianForward(tf.add(pc, poc), out_locs_rs, sigma, feat_size)
 
     offset_gauss = tf.reshape(offset_gauss, [tf.shape(a)[0], tf.shape(a)[1], tf.shape(a)[2], 1])
 
@@ -444,8 +446,8 @@ def train(res_aux, global_step):
   #   use_locking=False,
   #   name='Adam_2')
 
-  # a_optimizer_col_2 = tf.train.GradientDescentOptimizer(learning_rate=0.001) 
-  a_optimizer_col_2 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003) 
+  a_optimizer_col_2 = tf.train.GradientDescentOptimizer(learning_rate=0.001) 
+  # a_optimizer_col_2 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003) 
 
   var_list_2 = []
   var_list_2 = var_list_2 + tf.get_collection('weights_col2')
@@ -467,8 +469,8 @@ def train(res_aux, global_step):
   #   use_locking=False,
   #   name='Adam_1')
 
-  # a_optimizer_col_1 = tf.train.GradientDescentOptimizer(learning_rate=0.001)
-  a_optimizer_col_1 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003)  
+  a_optimizer_col_1 = tf.train.GradientDescentOptimizer(learning_rate=0.001)
+  # a_optimizer_col_1 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003)  
 
   var_list_1 = []
   var_list_1 = var_list_1 + tf.get_collection('weights_col1')
@@ -490,8 +492,8 @@ def train(res_aux, global_step):
   #   use_locking=False,
   #   name='Adam_0')
 
-  # a_optimizer_col_0 = tf.train.GradientDescentOptimizer(learning_rate=0.001) 
-  a_optimizer_col_0 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003) 
+  a_optimizer_col_0 = tf.train.GradientDescentOptimizer(learning_rate=0.001) 
+  # a_optimizer_col_0 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003) 
   
   var_list_0 = []
   var_list_0 = var_list_0 + tf.get_collection('weights_col0')
