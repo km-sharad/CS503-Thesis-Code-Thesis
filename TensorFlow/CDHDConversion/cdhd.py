@@ -277,7 +277,7 @@ def doForwardPass(x, out_locs, gt_loc):
 
   tf.assert_equal(tf.convert_to_tensor(tf.shape(out_locs)[0]), \
                   tf.multiply(tf.convert_to_tensor(tf.shape(x)[1]),\
-                              tf.convert_to_tensor(tf.shape(x)[2])))                        
+                              tf.convert_to_tensor(tf.shape(x)[2])))   
 
   aug_x = [x, None, None, None, 0]
 
@@ -445,7 +445,7 @@ def train(res_aux, global_step):
   #   name='Adam_2')
 
   # a_optimizer_col_2 = tf.train.GradientDescentOptimizer(learning_rate=0.001) 
-  a_optimizer_col_2 = tf.train.MomentumOptimizer(learning_rate=0.01, momentum=0.0003) 
+  a_optimizer_col_2 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003) 
 
   var_list_2 = []
   var_list_2 = var_list_2 + tf.get_collection('weights_col2')
@@ -468,7 +468,7 @@ def train(res_aux, global_step):
   #   name='Adam_1')
 
   # a_optimizer_col_1 = tf.train.GradientDescentOptimizer(learning_rate=0.001)
-  a_optimizer_col_1 = tf.train.MomentumOptimizer(learning_rate=0.01, momentum=0.0003)  
+  a_optimizer_col_1 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003)  
 
   var_list_1 = []
   var_list_1 = var_list_1 + tf.get_collection('weights_col1')
@@ -491,7 +491,7 @@ def train(res_aux, global_step):
   #   name='Adam_0')
 
   # a_optimizer_col_0 = tf.train.GradientDescentOptimizer(learning_rate=0.001) 
-  a_optimizer_col_0 = tf.train.MomentumOptimizer(learning_rate=0.01, momentum=0.0003) 
+  a_optimizer_col_0 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003) 
   
   var_list_0 = []
   var_list_0 = var_list_0 + tf.get_collection('weights_col0')

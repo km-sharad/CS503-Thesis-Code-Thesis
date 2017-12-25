@@ -49,8 +49,8 @@ def distorted_inputs(stats_dict, batch_size, anno_file_batch_rows):
   padded_images, cat_padding = concatWithPadding(np.asarray(images), np.asarray(im_sizes))
   padding = padding + cat_padding
 
-  x = np.arange(start_offset, padded_images.shape[2], output_stride)
-  y = np.arange(start_offset, padded_images.shape[1], output_stride)
+  x = np.arange(start_offset, padded_images.shape[1], output_stride)
+  y = np.arange(start_offset, padded_images.shape[2], output_stride)
 
   out_locs_list = []
   for xi in xrange(x.shape[0]):
