@@ -3,6 +3,7 @@ Contains CDHD Model
 """
 
 import tensorflow as tf
+# from cdhd_global import CDHDGlobals
 import cdhd_input
 import os
 import numpy as np
@@ -69,11 +70,12 @@ def getNormalizedLocationWeightsFast(w):
   nw = tf.divide(ew,sew[:,None,None,:])
   return nw
 
-def doOffset2GaussianForward(offset, locs, sigma):
+def doOffset2GaussianForward(offset, locs, sigma, feat_size):
   #based on: https://en.wikipedia.org/wiki/Radial_basis_function_kernel
   feat_numer = tf.reduce_sum(tf.square(tf.subtract(offset, locs[None,:,:,None])), axis=2)
   feat = tf.divide((tf.divide(feat_numer,2)), tf.square(sigma))
   feat = tf.exp(-feat)
+  feat = tf.reshape(feat, feat_size)
   return feat  
 
 def computePredictionLossSL1(pred, target, transition_dist):
@@ -90,21 +92,136 @@ def computePredictionLossSL1(pred, target, transition_dist):
   loss = tf.reshape(loss, [tf.shape(loss)[0],tf.shape(loss)[1],1,1])
   return loss, residue    
 
-def columnActivation(aug_x, column_num, fwd_dict):
+def getOffsetGrid():
+  grid_x = np.arange(-grid_size, grid_size + 1, grid_stride)
+  grid_y = np.arange(-grid_size, grid_size + 1, grid_stride)
+
+  offset_grid_list = []
+  for xi in xrange(grid_x.shape[0]):
+    for yi in xrange(grid_y.shape[0]):
+      offset_grid_list.append((grid_x[xi], grid_y[yi]))
+
+  offset_grid = np.asarray(offset_grid_list) 
+  offset_grid = tf.convert_to_tensor(offset_grid)
+  offset_grid = tf.transpose(offset_grid)
+  offset_grid_shape = offset_grid.get_shape().as_list()
+  offset_grid = tf.reshape(offset_grid, [1, offset_grid_shape[0],offset_grid_shape[1]])  
+  return offset_grid
+
+def localizeLandmark(a, out_locs, offset_grid, prev_loss, prev_pred, prev_offsets, prev_nw):
+  res = {}                #DELETE
+
+  chained = True
+  if(prev_pred == None):
+    chained = False  
+
+  #e.g.: a shape: [10, 42, 32, 26], w shape: [10, 42, 32, 1]
+  w = a[:, :, :, 0:1]
+
+  #getNormalizedLocationWeightsFast() returns softmax of the activation w
+  nw = getNormalizedLocationWeightsFast(w)
+
+  # nw[0] = batch size, nw[1] = rows, nw[2] = columns 
+  nw_reshape = tf.reshape(nw, [tf.shape(nw)[0], -1])
+
+  out_locs_rs = tf.convert_to_tensor(out_locs)
+  out_locs_rs = tf.cast(out_locs_rs, tf.float32)
+
+  pc = tf.multiply(nw_reshape[:,:,None], out_locs_rs[None,:,:])
+  pc = tf.reduce_sum(pc, axis=1)
+  pc = tf.reshape(pc, [tf.shape(pc)[0], 1, tf.shape(pc)[1], 1])
+
+  num_offset_channels = offset_grid.get_shape().as_list()[2]
+  offset_channels = tf.convert_to_tensor(np.arange(grid_stride) + 1)
+  num_chans = grid_stride + 1
+
+  offset_wts = a[:, :, :, 1: (grid_stride + 1)]
+
+  # Softmax
+  offset_max = tf.reduce_max(offset_wts, axis=3)
+  offset_wts = tf.subtract(offset_wts, offset_max[:,:,:,None])
+  offset_wts = tf.exp(offset_wts)
+  sum_offset_wts = tf.reduce_sum(offset_wts, axis=3)
+  offset_wts = tf.divide(offset_wts, sum_offset_wts[:,:,:,None])  #o(j) from section 3.3 of paper
+
+  offset_grid = tf.reshape(offset_grid, [2, 1, 1, grid_stride])
+
+  of_x = tf.multiply(tf.cast(offset_grid[0,0,0,:], tf.float32), offset_wts)
+  of_y = tf.multiply(tf.cast(offset_grid[1,0,0,:], tf.float32), offset_wts)
+
+  of_x = tf.reduce_sum(of_x,axis=3)
+  of_y = tf.reduce_sum(of_y,axis=3)
+
+  of_x = tf.reshape(of_x, [tf.shape(of_x)[0], tf.shape(of_x)[1], tf.shape(of_x)[2], 1])
+  of_y = tf.reshape(of_y, [tf.shape(of_y)[0], tf.shape(of_y)[1], tf.shape(of_y)[2], 1])
+
+  #po = p(i) of eq 2 from section 3.3 of paper
+  po = tf.concat(3, [of_x, of_y], name="conct_of_x_of_y_into_po")
+
+  poc = tf.reduce_sum(tf.multiply(po,nw), axis=(1,2))
+  poc = tf.reshape(poc, [tf.shape(poc)[0], 1, tf.shape(poc)[1], 1])
+
+  # res['poc_shape'] = tf.shape(poc)    #DELETE
+
+  sigma = tf.cast(15, tf.float32)   # RBF sigma
+
+  #offset_gauss = P(s) of eq 1 from section 3.2 of paper
+  feat_size = [tf.shape(a)[0], tf.shape(a)[1], tf.shape(a)[2], 1]
+  offset_gauss = doOffset2GaussianForward(tf.add(pc, poc), out_locs_rs, sigma, feat_size)
+  offset_gauss = tf.reshape(offset_gauss, [tf.shape(a)[0], tf.shape(a)[1], tf.shape(a)[2], 1])
+
+  if chained:
+    cent_loss, cent_residue = computePredictionLossSL1(prev_pred, pc, transition_dist)
+
+    offs_loss, offs_residue = computePredictionLossSL1(prev_offsets, pc, transition_dist)
+    offs_loss = tf.reduce_sum(tf.multiply(offs_loss, prev_nw), axis=1)
+    offs_loss = tf.reshape(offs_loss, [tf.shape(offs_loss)[0],1,1,1])
+  else:
+    cent_residue = pc * 0;
+    cent_loss = 0;
+    offs_residue = 0;
+    offs_loss = 0;
+
+  #indiv_preds
+  po = tf.reshape(po, [tf.shape(po)[0], tf.shape(po)[1] * tf.shape(po)[2], tf.shape(po)[3], 1])
+  indiv_preds = tf.add(out_locs_rs[None, :, :, None], po)
+
+  #indiv_nw
+  indiv_nw = tf.reshape(nw, [tf.shape(nw)[0], tf.shape(nw)[1] * tf.shape(nw)[2], tf.shape(nw)[3], 1])
+
+  #TODO: check if it's ok to multiply current iteration's preds with prev iter weights
+  #TODO: if learning does not converge, check how close this formula is to formula (4) in paper
+  loss = prev_loss + (cent_loss + offs_loss * offset_pred_weight) * prev_pred_weight;    
+
+  xx = offset_gauss;
+  out_x = [xx, pc + poc, indiv_preds, indiv_nw, loss]
+
+  # res = {}
+  res['x'] = out_x
+  res['pred'] = pc;
+  res['w'] = w;
+  res['pc'] = pc
+  res['po'] = po
+  res['poc'] = poc
+  res['nw'] = nw
+  res['dwn'] = nw     #TODO: check if this is right
+  res['offset_wts'] = offset_wts
+  res['cent_residue'] = cent_residue
+  res['offs_residue'] = offs_residue
+  res['nzw_frac'] = 0 #TODO: what is this?
+  res['interim'] = a  #TODO: check if this is right
+
+  return res    
+
+def columnActivation(aug_x, column_num, out_locs):
   prev_pred = aug_x[1]        #pc + poc
   prev_loss = aug_x[4]        #loss
   prev_offsets = aug_x[2]     #indiv_preds
   prev_nw = aug_x[3]          #indiv_nw
   x = aug_x[0]                #xx
 
-  res = {}                #DELETE
-
-  chained = True
-  if(prev_pred == None):
-    chained = False
-
-  num_out_filters = fwd_dict['num_out_filters']
-  out_locs = fwd_dict['out_locs']
+  offset_grid = getOffsetGrid()
+  num_out_filters = offset_grid.get_shape().as_list()[2] + 1; 
 
   with tf.variable_scope('col' + str(column_num) + '1') as scope:
     kernel = _variable_with_weight_decay('weights_col' + str(column_num),
@@ -138,127 +255,13 @@ def columnActivation(aug_x, column_num, fwd_dict):
     biases = _variable_on_cpu('biases_col' + str(column_num), [num_out_filters], tf.constant_initializer(0.1))
     a = tf.nn.bias_add(conv, biases)
 
-    #e.g.: a shape: [10, 42, 32, 26], w shape: [10, 42, 32, 1]
-    w = a[:, :, :, 0:1]
+  res = localizeLandmark(a, out_locs, offset_grid, prev_loss, prev_pred, prev_offsets, prev_nw)
 
-    #getNormalizedLocationWeightsFast() returns softmax of the activation w
-    nw = getNormalizedLocationWeightsFast(w)
-
-    # nw[0] = batch size, nw[1] = rows, nw[2] = columns 
-    nw_reshape = tf.reshape(nw, [tf.shape(nw)[0], -1])
-
-    out_locs_rs = tf.convert_to_tensor(out_locs)
-    out_locs_rs = tf.cast(out_locs_rs, tf.float32)
-
-    pc = tf.multiply(nw_reshape[:,:,None], out_locs_rs[None,:,:])
-
-    pc = tf.reduce_sum(pc, axis=1)
-    pc = tf.reshape(pc, [tf.shape(pc)[0], 1, tf.shape(pc)[1], 1])
-
-    offset_grid = fwd_dict['offset_grid']
-    num_offset_channels = offset_grid.get_shape().as_list()[2]
-    offset_channels = tf.convert_to_tensor(np.arange(grid_stride) + 1)
-    num_chans = grid_stride + 1
-
-    offset_wts = a[:, :, :, 1: (grid_stride + 1)]
-
-    # Softmax
-    offset_max = tf.reduce_max(offset_wts, axis=3)
-    offset_wts = tf.subtract(offset_wts, offset_max[:,:,:,None])
-    offset_wts = tf.exp(offset_wts)
-    sum_offset_wts = tf.reduce_sum(offset_wts, axis=3)
-    offset_wts = tf.divide(offset_wts, sum_offset_wts[:,:,:,None])  #o(j) from section 3.3 of paper
-
-    offset_grid = tf.reshape(offset_grid, [2, 1, 1, grid_stride])
-
-    of_x = tf.multiply(tf.cast(offset_grid[0,0,0,:], tf.float32), offset_wts)
-    of_y = tf.multiply(tf.cast(offset_grid[1,0,0,:], tf.float32), offset_wts)
-
-    of_x = tf.reduce_sum(of_x,axis=3)
-    of_y = tf.reduce_sum(of_y,axis=3)
-
-    of_x = tf.reshape(of_x, [tf.shape(of_x)[0], tf.shape(of_x)[1], tf.shape(of_x)[2], 1])
-    of_y = tf.reshape(of_y, [tf.shape(of_y)[0], tf.shape(of_y)[1], tf.shape(of_y)[2], 1])
-
-    #po = p(i) of eq 2 from section 3.3 of paper
-    po = tf.concat(3, [of_x, of_y], name="conct_of_x_of_y_into_po")
-
-    poc = tf.reduce_sum(tf.multiply(po,nw), axis=(1,2))
-    poc = tf.reshape(poc, [tf.shape(poc)[0], 1, tf.shape(poc)[1], 1])
-
-    # res['poc_shape'] = tf.shape(poc)    #DELETE
-
-    sigma = tf.cast(15, tf.float32)   # RBF sigma
-
-    #offset_gauss = P(s) of eq 1 from section 3.2 of paper
-    offset_gauss = doOffset2GaussianForward(tf.add(pc, poc), out_locs_rs, sigma)
-
-    offset_gauss = tf.reshape(offset_gauss, [tf.shape(a)[0], tf.shape(a)[1], tf.shape(a)[2], 1])
-
-    if chained:
-      cent_loss, cent_residue = computePredictionLossSL1(prev_pred, pc, transition_dist)
-
-      offs_loss, offs_residue = computePredictionLossSL1(prev_offsets, pc, transition_dist)
-      offs_loss = tf.reduce_sum(tf.multiply(offs_loss, prev_nw), axis=1)
-      offs_loss = tf.reshape(offs_loss, [tf.shape(offs_loss)[0],1,1,1])
-    else:
-      cent_residue = pc * 0;
-      cent_loss = 0;
-      offs_residue = 0;
-      offs_loss = 0;
-
-    #indiv_preds
-    po = tf.reshape(po, [tf.shape(po)[0], tf.shape(po)[1] * tf.shape(po)[2], tf.shape(po)[3], 1])
-    indiv_preds = tf.add(out_locs_rs[None, :, :, None], po)
-
-    #indiv_nw
-    indiv_nw = tf.reshape(nw, [tf.shape(nw)[0], tf.shape(nw)[1] * tf.shape(nw)[2], tf.shape(nw)[3], 1])
-
-    #TODO: check if it's ok to multiply current iteration's preds with prev iter weights
-    #TODO: if learning does not converge, check how close this formula is to formula (4) in paper
-    loss = prev_loss + (cent_loss + offs_loss * offset_pred_weight) * prev_pred_weight;    
-
-    xx = offset_gauss;
-    out_x = [xx, pc + poc, indiv_preds, indiv_nw, loss]
-
-    # res = {}
-    res['x'] = out_x
-    res['pred'] = pc;
-    res['w'] = w;
-    res['pc'] = pc
-    res['po'] = po
-    res['poc'] = poc
-    res['nw'] = nw
-    res['dwn'] = nw     #TODO: check if this is right
-    res['offset_wts'] = offset_wts
-    # res['offs_loss'] = offs_loss * offset_pred_weight * prev_pred_weight
-    res['cent_residue'] = cent_residue
-    res['offs_residue'] = offs_residue
-    res['nzw_frac'] = 0 #TODO: what is this?
-    res['interim'] = a  #TODO: check if this is right
-
-    return res  
+  return res  
 
 def doForwardPass(x, out_locs, gt_loc):
 
   res_aux = {}    #DELETE
-
-  grid_x = np.arange(-grid_size, grid_size + 1, grid_stride)
-  grid_y = np.arange(-grid_size, grid_size + 1, grid_stride)
-
-  offset_grid_list = []
-  for xi in xrange(grid_x.shape[0]):
-    for yi in xrange(grid_y.shape[0]):
-      offset_grid_list.append((grid_x[xi], grid_y[yi]))
-
-  offset_grid = np.asarray(offset_grid_list) 
-  offset_grid = tf.convert_to_tensor(offset_grid)
-  offset_grid = tf.transpose(offset_grid)
-  offset_grid_shape = offset_grid.get_shape().as_list()
-  offset_grid = tf.reshape(offset_grid, [1, offset_grid_shape[0],offset_grid_shape[1]])
-
-  #25 + 1 filters: 25 for the offsets and 1 for the gt coordinate
-  num_out_filters = offset_grid.get_shape().as_list()[2] + 1; 
 
   n = tf.shape(x)[1] * tf.shape(x)[2]
   
@@ -269,14 +272,9 @@ def doForwardPass(x, out_locs, gt_loc):
 
   res_steps = []
 
-  fwd_dict = {}
-  fwd_dict['num_out_filters'] = num_out_filters
-  fwd_dict['out_locs'] = out_locs
-  fwd_dict['offset_grid'] = offset_grid
-
   tf.assert_equal(tf.convert_to_tensor(tf.shape(out_locs)[0]), \
                   tf.multiply(tf.convert_to_tensor(tf.shape(x)[1]),\
-                              tf.convert_to_tensor(tf.shape(x)[2])))                        
+                              tf.convert_to_tensor(tf.shape(x)[2])))   
 
   aug_x = [x, None, None, None, 0]
 
@@ -285,7 +283,7 @@ def doForwardPass(x, out_locs, gt_loc):
 
   res_step = None
   for i in xrange(steps):
-    res_step = columnActivation(aug_x, i, fwd_dict)
+    res_step = columnActivation(aug_x, i, out_locs)
     res_steps.append(res_step)
     out_x = res_step['x']
 
