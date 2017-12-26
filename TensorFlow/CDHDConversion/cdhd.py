@@ -140,107 +140,107 @@ def columnActivation(aug_x, column_num, fwd_dict):
     biases = _variable_on_cpu('biases_col' + str(column_num), [num_out_filters], tf.constant_initializer(0.1))
     a = tf.nn.bias_add(conv, biases)
 
-    #e.g.: a shape: [10, 42, 32, 26], w shape: [10, 42, 32, 1]
-    w = a[:, :, :, 0:1]
+  #e.g.: a shape: [10, 42, 32, 26], w shape: [10, 42, 32, 1]
+  w = a[:, :, :, 0:1]
 
-    #getNormalizedLocationWeightsFast() returns softmax of the activation w
-    nw = getNormalizedLocationWeightsFast(w)
+  #getNormalizedLocationWeightsFast() returns softmax of the activation w
+  nw = getNormalizedLocationWeightsFast(w)
 
-    # nw[0] = batch size, nw[1] = rows, nw[2] = columns 
-    nw_reshape = tf.reshape(nw, [tf.shape(nw)[0], -1])
+  # nw[0] = batch size, nw[1] = rows, nw[2] = columns 
+  nw_reshape = tf.reshape(nw, [tf.shape(nw)[0], -1])
 
-    out_locs_rs = tf.convert_to_tensor(out_locs)
-    out_locs_rs = tf.cast(out_locs_rs, tf.float32)
+  out_locs_rs = tf.convert_to_tensor(out_locs)
+  out_locs_rs = tf.cast(out_locs_rs, tf.float32)
 
-    pc = tf.multiply(nw_reshape[:,:,None], out_locs_rs[None,:,:])
+  pc = tf.multiply(nw_reshape[:,:,None], out_locs_rs[None,:,:])
 
-    pc = tf.reduce_sum(pc, axis=1)
-    pc = tf.reshape(pc, [tf.shape(pc)[0], 1, tf.shape(pc)[1], 1])
+  pc = tf.reduce_sum(pc, axis=1)
+  pc = tf.reshape(pc, [tf.shape(pc)[0], 1, tf.shape(pc)[1], 1])
 
-    offset_grid = fwd_dict['offset_grid']
-    num_offset_channels = offset_grid.get_shape().as_list()[2]
-    offset_channels = tf.convert_to_tensor(np.arange(grid_stride) + 1)
-    num_chans = grid_stride + 1
+  offset_grid = fwd_dict['offset_grid']
+  num_offset_channels = offset_grid.get_shape().as_list()[2]
+  offset_channels = tf.convert_to_tensor(np.arange(grid_stride) + 1)
+  num_chans = grid_stride + 1
 
-    offset_wts = a[:, :, :, 1: (grid_stride + 1)]
+  offset_wts = a[:, :, :, 1: (grid_stride + 1)]
 
-    # Softmax
-    offset_max = tf.reduce_max(offset_wts, axis=3)
-    offset_wts = tf.subtract(offset_wts, offset_max[:,:,:,None])
-    offset_wts = tf.exp(offset_wts)
-    sum_offset_wts = tf.reduce_sum(offset_wts, axis=3)
-    offset_wts = tf.divide(offset_wts, sum_offset_wts[:,:,:,None])  #o(j) from section 3.3 of paper
+  # Softmax
+  offset_max = tf.reduce_max(offset_wts, axis=3)
+  offset_wts = tf.subtract(offset_wts, offset_max[:,:,:,None])
+  offset_wts = tf.exp(offset_wts)
+  sum_offset_wts = tf.reduce_sum(offset_wts, axis=3)
+  offset_wts = tf.divide(offset_wts, sum_offset_wts[:,:,:,None])  #o(j) from section 3.3 of paper
 
-    offset_grid = tf.reshape(offset_grid, [2, 1, 1, grid_stride])
+  offset_grid = tf.reshape(offset_grid, [2, 1, 1, grid_stride])
 
-    of_x = tf.multiply(tf.cast(offset_grid[0,0,0,:], tf.float32), offset_wts)
-    of_y = tf.multiply(tf.cast(offset_grid[1,0,0,:], tf.float32), offset_wts)
+  of_x = tf.multiply(tf.cast(offset_grid[0,0,0,:], tf.float32), offset_wts)
+  of_y = tf.multiply(tf.cast(offset_grid[1,0,0,:], tf.float32), offset_wts)
 
-    of_x = tf.reduce_sum(of_x,axis=3)
-    of_y = tf.reduce_sum(of_y,axis=3)
+  of_x = tf.reduce_sum(of_x,axis=3)
+  of_y = tf.reduce_sum(of_y,axis=3)
 
-    of_x = tf.reshape(of_x, [tf.shape(of_x)[0], tf.shape(of_x)[1], tf.shape(of_x)[2], 1])
-    of_y = tf.reshape(of_y, [tf.shape(of_y)[0], tf.shape(of_y)[1], tf.shape(of_y)[2], 1])
+  of_x = tf.reshape(of_x, [tf.shape(of_x)[0], tf.shape(of_x)[1], tf.shape(of_x)[2], 1])
+  of_y = tf.reshape(of_y, [tf.shape(of_y)[0], tf.shape(of_y)[1], tf.shape(of_y)[2], 1])
 
-    #po = p(i) of eq 2 from section 3.3 of paper
-    po = tf.concat(3, [of_x, of_y], name="conct_of_x_of_y_into_po")
+  #po = p(i) of eq 2 from section 3.3 of paper
+  po = tf.concat(3, [of_x, of_y], name="conct_of_x_of_y_into_po")
 
-    poc = tf.reduce_sum(tf.multiply(po,nw), axis=(1,2))
-    poc = tf.reshape(poc, [tf.shape(poc)[0], 1, tf.shape(poc)[1], 1])
+  poc = tf.reduce_sum(tf.multiply(po,nw), axis=(1,2))
+  poc = tf.reshape(poc, [tf.shape(poc)[0], 1, tf.shape(poc)[1], 1])
 
-    # res['poc_shape'] = tf.shape(poc)    #DELETE
+  # res['poc_shape'] = tf.shape(poc)    #DELETE
 
-    sigma = tf.cast(15, tf.float32)   # RBF sigma
+  sigma = tf.cast(15, tf.float32)   # RBF sigma
 
-    #offset_gauss = P(s) of eq 1 from section 3.2 of paper
-    feat_size = [tf.shape(a)[0], tf.shape(a)[1], tf.shape(a)[2], 1]
-    offset_gauss = doOffset2GaussianForward(tf.add(pc, poc), out_locs_rs, sigma, feat_size)
+  #offset_gauss = P(s) of eq 1 from section 3.2 of paper
+  feat_size = [tf.shape(a)[0], tf.shape(a)[1], tf.shape(a)[2], 1]
+  offset_gauss = doOffset2GaussianForward(tf.add(pc, poc), out_locs_rs, sigma, feat_size)
 
-    offset_gauss = tf.reshape(offset_gauss, [tf.shape(a)[0], tf.shape(a)[1], tf.shape(a)[2], 1])
+  offset_gauss = tf.reshape(offset_gauss, [tf.shape(a)[0], tf.shape(a)[1], tf.shape(a)[2], 1])
 
-    if chained:
-      cent_loss, cent_residue = computePredictionLossSL1(prev_pred, pc, transition_dist)
+  if chained:
+    cent_loss, cent_residue = computePredictionLossSL1(prev_pred, pc, transition_dist)
 
-      offs_loss, offs_residue = computePredictionLossSL1(prev_offsets, pc, transition_dist)
-      offs_loss = tf.reduce_sum(tf.multiply(offs_loss, prev_nw), axis=1)
-      offs_loss = tf.reshape(offs_loss, [tf.shape(offs_loss)[0],1,1,1])
-    else:
-      cent_residue = pc * 0;
-      cent_loss = 0;
-      offs_residue = 0;
-      offs_loss = 0;
+    offs_loss, offs_residue = computePredictionLossSL1(prev_offsets, pc, transition_dist)
+    offs_loss = tf.reduce_sum(tf.multiply(offs_loss, prev_nw), axis=1)
+    offs_loss = tf.reshape(offs_loss, [tf.shape(offs_loss)[0],1,1,1])
+  else:
+    cent_residue = pc * 0;
+    cent_loss = 0;
+    offs_residue = 0;
+    offs_loss = 0;
 
-    #indiv_preds
-    po = tf.reshape(po, [tf.shape(po)[0], tf.shape(po)[1] * tf.shape(po)[2], tf.shape(po)[3], 1])
-    indiv_preds = tf.add(out_locs_rs[None, :, :, None], po)
+  #indiv_preds
+  po = tf.reshape(po, [tf.shape(po)[0], tf.shape(po)[1] * tf.shape(po)[2], tf.shape(po)[3], 1])
+  indiv_preds = tf.add(out_locs_rs[None, :, :, None], po)
 
-    #indiv_nw
-    indiv_nw = tf.reshape(nw, [tf.shape(nw)[0], tf.shape(nw)[1] * tf.shape(nw)[2], tf.shape(nw)[3], 1])
+  #indiv_nw
+  indiv_nw = tf.reshape(nw, [tf.shape(nw)[0], tf.shape(nw)[1] * tf.shape(nw)[2], tf.shape(nw)[3], 1])
 
-    #TODO: check if it's ok to multiply current iteration's preds with prev iter weights
-    #TODO: if learning does not converge, check how close this formula is to formula (4) in paper
-    loss = prev_loss + (cent_loss + offs_loss * offset_pred_weight) * prev_pred_weight;    
+  #TODO: check if it's ok to multiply current iteration's preds with prev iter weights
+  #TODO: if learning does not converge, check how close this formula is to formula (4) in paper
+  loss = prev_loss + (cent_loss + offs_loss * offset_pred_weight) * prev_pred_weight;    
 
-    xx = offset_gauss;
-    out_x = [xx, pc + poc, indiv_preds, indiv_nw, loss]
+  xx = offset_gauss;
+  out_x = [xx, pc + poc, indiv_preds, indiv_nw, loss]
 
-    # res = {}
-    res['x'] = out_x
-    res['pred'] = pc;
-    res['w'] = w;
-    res['pc'] = pc
-    res['po'] = po
-    res['poc'] = poc
-    res['nw'] = nw
-    res['dwn'] = nw     #TODO: check if this is right
-    res['offset_wts'] = offset_wts
-    # res['offs_loss'] = offs_loss * offset_pred_weight * prev_pred_weight
-    res['cent_residue'] = cent_residue
-    res['offs_residue'] = offs_residue
-    res['nzw_frac'] = 0 #TODO: what is this?
-    res['interim'] = a  #TODO: check if this is right
+  # res = {}
+  res['x'] = out_x
+  res['pred'] = pc;
+  res['w'] = w;
+  res['pc'] = pc
+  res['po'] = po
+  res['poc'] = poc
+  res['nw'] = nw
+  res['dwn'] = nw     #TODO: check if this is right
+  res['offset_wts'] = offset_wts
+  # res['offs_loss'] = offs_loss * offset_pred_weight * prev_pred_weight
+  res['cent_residue'] = cent_residue
+  res['offs_residue'] = offs_residue
+  res['nzw_frac'] = 0 #TODO: what is this?
+  res['interim'] = a  #TODO: check if this is right
 
-    return res  
+  return res  
 
 def doForwardPass(x, out_locs, gt_loc):
 
