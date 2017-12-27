@@ -30,15 +30,17 @@ def distorted_inputs(stats_dict, batch_size, anno_file_batch_rows):
 
   images = []
   target_locs = []
+  target_locs2 = []
   infos = []
 
   for image_idx in xrange(batch_size):
     #read and convert images into numpy array
     meta_rec = anno_file_batch_rows[image_idx].split('|')
-    [image, target_loc, info] = getImage(meta_rec, stats_dict)
+    [image, target_loc, target_loc2, info] = getImage(meta_rec, stats_dict)
 
     images.append(image)
     target_locs.append(target_loc)
+    target_locs2.append(target_loc2)
     infos.append(info)
 
   im_sizes = np.asarray([info['im_size'] for info in infos])
@@ -47,6 +49,11 @@ def distorted_inputs(stats_dict, batch_size, anno_file_batch_rows):
   im_org = np.asarray([info['im_org'] for info in infos])
 
   padded_images, cat_padding = concatWithPadding(np.asarray(images), np.asarray(im_sizes))
+
+  # print('target locs: ', target_locs)     #DELETE
+  # print('target locs 2: ', target_locs2)  #DELETE
+  # sys.exit()                              #DELETE
+
   padding = padding + cat_padding
 
   x = np.arange(start_offset, padded_images.shape[1], output_stride)
@@ -56,12 +63,15 @@ def distorted_inputs(stats_dict, batch_size, anno_file_batch_rows):
   for xi in xrange(x.shape[0]):
     for yi in xrange(y.shape[0]):
       out_locs_list.append((x[xi], y[yi]))
-
   out_locs = np.asarray(out_locs_list)
 
-  gt_coords = np.round(np.divide(np.subtract(np.asarray(target_locs),start_offset), 
+  gt_coords = np.round(np.divide(np.subtract(np.asarray(target_locs), start_offset), 
                   float((output_stride + 1))),2)
+  gt_coords2 = np.round(np.divide(np.subtract(np.asarray(target_locs2), start_offset), 
+                  float((output_stride + 1))),2)
+
   org_gt_coords = np.asarray(target_locs)
+  org_gt_coords2 = np.asarray(target_locs2)
 
   '''
   out_locs = out_locs ./ opts.scaling_factor;
@@ -72,8 +82,8 @@ def distorted_inputs(stats_dict, batch_size, anno_file_batch_rows):
   out_locs = np.round(np.divide(out_locs, scaling_factor),4)
   org_gt_coords_ll0 = np.round(np.divide(org_gt_coords, scaling_factor),4)
 
-  #for 2 little landmarks
-  org_gt_coords_ll1 = np.round(np.divide(org_gt_coords, scaling_factor),4)
+  #for second little landmarks 
+  org_gt_coords_ll1 = np.round(np.divide(org_gt_coords2, scaling_factor),4)
 
   meta_dict = {}
   meta_dict['margins'] = []
@@ -94,6 +104,8 @@ def getImage(meta_rec, stats_dict):
     im_meta_dict = {}
     im_meta_dict['gt_x_coord'] = int(float(meta_rec[0]))
     im_meta_dict['gt_y_coord'] = int(float(meta_rec[1]))
+    im_meta_dict['gt_x2_coord'] = int(float(meta_rec[2]))
+    im_meta_dict['gt_y2_coord'] = int(float(meta_rec[3]))    
     im_meta_dict['img_size'] = [int(i) for i in meta_rec[5].split(',')]
     im_meta_dict['bbox'] = [int(i) for i in meta_rec[6][0:len(meta_rec[6]) - 1].split(',')]  
 
@@ -110,12 +122,14 @@ def getImage(meta_rec, stats_dict):
     #Compute the default scaling
     scale = round(max_im_side/float(np.amax(im.shape)),4)    
 
-    [im, target_loc, aug_scale] = getAugmentedImage(im, im_meta_dict)
+    [im, target_loc, target_loc2, aug_scale] = getAugmentedImage(im, im_meta_dict)
 
     im_org_scaled = imresize(im, scale,interp='bilinear')
     im = im_org_scaled
     target_loc[0] = int(round(target_loc[0] * scale,0))    
     target_loc[1] = int(round(target_loc[1] * scale,0))   
+    target_loc2[0] = int(round(target_loc2[0] * scale,0))    
+    target_loc2[1] = int(round(target_loc2[1] * scale,0))       
 
     #TODO: Bugfix - this normalizaton is not working  
     # im = np.subtract(im, stats_dict['mean_pixel'])
@@ -126,9 +140,10 @@ def getImage(meta_rec, stats_dict):
     padding = np.zeros(4) #T/B/L/R - top, bottom, left, right
 
     padding = padding + init_padding;
-    target_loc = target_loc + init_padding
-    im_size[0] = im_size[0] + (2 * init_padding)    #Y-axis
-    im_size[1] = im_size[1] + (2 * init_padding)    #X-axis
+    target_loc  = target_loc + init_padding
+    target_loc2 = target_loc2 + init_padding
+    im_size[0]  = im_size[0] + (2 * init_padding)    #Y-axis
+    im_size[1]  = im_size[1] + (2 * init_padding)    #X-axis
 
     #Pad if smaller than minimum size
     min_side_padding = np.maximum(np.subtract(min_side - im_size[0:2],np.zeros(2)),np.zeros(2))
@@ -153,7 +168,7 @@ def getImage(meta_rec, stats_dict):
       im = np.pad(im, padding_tuple,'edge')
       assert(np.array_equal(im_size, np.asarray(im.shape))), "assertion error in image preprocessing"
     except ValueError:
-      # Assertion will fail in this case
+      # Assertion will fail in this case of monochrome images
       print('padding error for image: ', meta_rec[2])
 
     # Question: Only image is padded, target_loc is not padded, why?
@@ -177,11 +192,16 @@ def getImage(meta_rec, stats_dict):
     target_loc[0] = target_loc[1]
     target_loc[1] = temp_coord
 
-    return [im, target_loc, info]
+    temp_coord = target_loc2[0]
+    target_loc2[0] = target_loc2[1]
+    target_loc2[1] = temp_coord    
+
+    return [im, target_loc, target_loc2, info]
 
 def getAugmentedImage(im, im_meta_dict):
   (im, im_meta_dict) = lrFlipCDHDDataRecord(im, im_meta_dict)
   targets = [im_meta_dict['gt_x_coord'], im_meta_dict['gt_y_coord']]  
+  targets2 = [im_meta_dict['gt_x2_coord'], im_meta_dict['gt_y2_coord']]  
 
   #add random scale jitter
   scale_range = [round(log(0.6),4), round(log(1.25),4)]
@@ -191,10 +211,14 @@ def getAugmentedImage(im, im_meta_dict):
   targets_np = np.zeros(2)
   targets_np[0] = int(round(targets[0] * scale,0))
   targets_np[1] = int(round(targets[1] * scale,0))
+
+  targets_np2 = np.zeros(2)
+  targets_np2[0] = int(round(targets2[0] * scale,0))
+  targets_np2[1] = int(round(targets2[1] * scale,0))  
   
   #TO-DO: random crop jitter
 
-  return [im, targets_np, scale]
+  return [im, targets_np, targets_np2, scale]
 
 def lrFlipCDHDDataRecord(im, im_meta_dict):
   if random.uniform(0, 1) > 0.5:
@@ -202,6 +226,7 @@ def lrFlipCDHDDataRecord(im, im_meta_dict):
 
     #change x-coordinate of ground truth after flipping image
     im_meta_dict['gt_x_coord'] = im.shape[1] - im_meta_dict['gt_x_coord']
+    im_meta_dict['gt_x2_coord'] = im.shape[1] - im_meta_dict['gt_x2_coord']
 
     #change x-coordinate of bounding box after flipping image
     temp = im_meta_dict['bbox'][0]
@@ -226,6 +251,8 @@ def concatWithPadding(images, im_sizes):
   for idx in xrange(len(images)):
     padding_tuple = (((paddings[idx])[0], (paddings[idx])[1]), ((paddings[idx])[2], (paddings[idx])[3]), (0,0))
     padded_images.append(np.pad(images[idx], padding_tuple,'edge'))
+
+    # Image.fromarray(np.pad(images[idx], padding_tuple,'edge')).save('dog_ims/' + str(idx) + '.jpg') #DELETE
 
   return np.asarray(padded_images), paddings
 
