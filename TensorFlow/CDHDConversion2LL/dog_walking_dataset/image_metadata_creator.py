@@ -7,8 +7,10 @@ def main():
 	for image in prototypical_lst:
 		try:
 			crop_prototypical_image(image[39:])
-		except ValueError:
+		except ValueError as e:
+			#Exception will occur if 'attached-to-leash' and 'holding-leash" is not in label file
 			print(image[39:])
+			print str(e)
 
 
 def crop_prototypical_image(labl_filename):
@@ -47,8 +49,8 @@ def crop_prototypical_image(labl_filename):
 
 	image_name = "DogWalkingLittleLandmarks/prototypical/" + labl_filename[:labl_filename.index(".")] + ".jpg"
 
-	out_str = str(ll1_cent_coords[0]) + ',' + str(ll1_cent_coords[1]) + '|' + \
-			  str(ll2_cent_coords[0]) + ',' + str(ll2_cent_coords[1]) + '|' + \
+	out_str = str(ll1_cent_coords[0]) + '|' + str(ll1_cent_coords[1]) + '|' + \
+			  str(ll2_cent_coords[0]) + '|' + str(ll2_cent_coords[1]) + '|' + \
 			  image_name + '|' + \
 			  str(labl_lst[0]) + ',' + str(labl_lst[1]) + ',' + str(3) + '|' + \
 			  str(leash_cent_coords[0]) + ',' + str(leash_cent_coords[1]) + ',' + str(leash_cent_coords[2]) + ',' + str(leash_cent_coords[3])
