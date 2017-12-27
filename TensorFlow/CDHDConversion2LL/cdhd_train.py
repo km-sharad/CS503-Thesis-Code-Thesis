@@ -8,9 +8,9 @@ import time
 import cdhd_input
 from tensorflow.python import debug as tf_debug
 
-total_visible_training_images = 1920    # Number of training images where car door handle is visible
+total_visible_training_images = 250     # Number of training images where car door handle is visible
 max_steps = 2600                        # Number of batches to run
-stats_sample_size = 200                 # Number of images to calculate mean and sd
+stats_sample_size = 40                  # Number of images to calculate mean and sd
 batch_size = 10                         # Number of images to process in a batch
 
 def computeNormalizationParameters():
@@ -99,7 +99,7 @@ def getImageMetaRecords():
   # batch_indexes = all_train_visible_idx[0:batch_size]
 
   anno_file_batch_rows = []
-  anno_file = open('cdhd_anno_training_data.txt')
+  anno_file = open('dwi_anno_training_data.txt')
   anno_file_lines = anno_file.readlines()
 
   for x in all_train_visible_idx:
