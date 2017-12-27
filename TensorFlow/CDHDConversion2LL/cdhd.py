@@ -214,18 +214,22 @@ def localizeLandmark(a, out_locs, offset_grid, prev_loss, prev_pred, prev_offset
   return res    
 
 def columnActivation(aug_x, column_num, out_locs):
-  prev_pred = aug_x[1]        #pc + poc
-  prev_loss = aug_x[4]        #loss
-  prev_offsets = aug_x[2]     #indiv_preds
-  prev_nw = aug_x[3]          #indiv_nw
-  x = aug_x[0]                #xx
+  prev_pred_ll0 = aug_x[1]        #pc + poc little landmark 1
+  prev_loss_ll0 = aug_x[4]        #loss little landmark 1
+  prev_offsets_ll0 = aug_x[2]     #indiv_preds little landmark 1
+  prev_nw_ll0 = aug_x[3]          #indiv_nw little landmark 1
+  prev_pred_ll1 = aug_x[5]        #pc + poc little landmark 2
+  prev_loss_ll1 = aug_x[8]        #loss little landmark 2
+  prev_offsets_ll1 = aug_x[6]     #indiv_preds little landmark 2
+  prev_nw_ll1 = aug_x[7]          #indiv_nw little landmark 2
+  x = aug_x[0]                    #xx
 
   offset_grid = getOffsetGrid()
-  num_out_filters = offset_grid.get_shape().as_list()[2] + 1; 
+  num_out_filters = (offset_grid.get_shape().as_list()[2] + 1) * 2; 
 
   with tf.variable_scope('col' + str(column_num) + '1') as scope:
     kernel = _variable_with_weight_decay('weights_col' + str(column_num),
-                                         shape=[5, 5, nfc + 1, nfc],
+                                         shape=[5, 5, nfc + 2, nfc],
                                          stddev=1,  #check if this is right
                                          wd=0.0)
     kernel = tf.multiply(kernel, 0.0249)      #line 327-334 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
@@ -255,18 +259,25 @@ def columnActivation(aug_x, column_num, out_locs):
     biases = _variable_on_cpu('biases_col' + str(column_num), [num_out_filters], tf.constant_initializer(0.1))
     a = tf.nn.bias_add(conv, biases)
 
-  res = localizeLandmark(a, out_locs, offset_grid, prev_loss, prev_pred, prev_offsets, prev_nw)
+  #e.g.: a shape: [10, 42, 32, 52], w_ll0 shape: [10, 42, 32, 1]
+  w_ll0 = a[:, :, :, 0 : grid_stride + 1]  
+  w_ll1 = a[:, :, :, grid_stride + 1 : (grid_stride + 1)*2]  
+
+  res_ll0 = localizeLandmark(w_ll0, out_locs, offset_grid, prev_loss_ll0, prev_pred_ll0, prev_offsets_ll0, prev_nw_ll0)
+  res_ll1 = localizeLandmark(w_ll1, out_locs, offset_grid, prev_loss_ll1, prev_pred_ll1, prev_offsets_ll1, prev_nw_ll1)
+
+  res = (res_ll0, res_ll1)  
 
   return res  
 
-def doForwardPass(x, out_locs, gt_loc):
+def doForwardPass(x, out_locs, gt_loc_ll0, gt_loc_ll1):
 
   res_aux = {}    #DELETE
 
   n = tf.shape(x)[1] * tf.shape(x)[2]
   
   xa = tf.multiply(tf.cast(tf.divide(tf.ones([tf.shape(x)[0], \
-                tf.shape(x)[1],tf.shape(x)[2],1], tf.int32), n), tf.float32), pred_factor)
+                tf.shape(x)[1],tf.shape(x)[2],2], tf.int32), n), tf.float32), pred_factor)
 
   x = tf.concat(3, [xa,x])    #IN NEWER VERSION OF TF CORRECT COMMAND IS: tf.concat([xa,x], 3)
 
@@ -276,74 +287,94 @@ def doForwardPass(x, out_locs, gt_loc):
                   tf.multiply(tf.convert_to_tensor(tf.shape(x)[1]),\
                               tf.convert_to_tensor(tf.shape(x)[2])))   
 
-  aug_x = [x, None, None, None, 0]
+  aug_x = [x, None, None, None, 0, None, None, None, 0]
 
-  all_preds = None
-  all_cents = None
+  # all_preds = None
+  # all_cents = None
 
   res_step = None
   for i in xrange(steps):
     res_step = columnActivation(aug_x, i, out_locs)
     res_steps.append(res_step)
-    out_x = res_step['x']
+    out_x_ll0 = (res_step[0])['x']      #column activation for little landmark 1
+    out_x_ll1 = (res_step[1])['x']      #column activation for little landmark 2
 
-    #Output of step 1 goes as input to step 2 and output of step 2 goes as input to step 3
+    #Output activations of step 1 goes as input to step 2 and output of step 2 goes as input to step 3
     #TODO: check size of x_sans_xa after data is fed. Note: checked on 12/3/17 - passed
-
-    x_sans_xa = tf.slice(aug_x[0], [0,0,0,1], [tf.shape(aug_x[0])[0], tf.shape(aug_x[0])[1], \
+    #TODO: check shape
+    x_sans_xa = tf.slice(aug_x[0], [0,0,0,2], [tf.shape(aug_x[0])[0], tf.shape(aug_x[0])[1], \
                     tf.shape(aug_x[0])[2], -1])
 
-    # out_x[0] = output of previous layer
-    out_x[0] = tf.reshape(out_x[0], [tf.shape(x_sans_xa)[0], tf.shape(x_sans_xa)[1], \
-                    tf.shape(x_sans_xa)[2], 1])
+    # out_x[0] = output activations of previous layer
+    # TODO: check if reshape is required here, probably not
+    # out_x[0] = tf.reshape(out_x[0], [tf.shape(x_sans_xa)[0], tf.shape(x_sans_xa)[1], \
+    #                 tf.shape(x_sans_xa)[2], 1])
+    #TODO: check shape
+    xx_concat = tf.concat(3, [out_x_ll0[0], out_x_ll1[0]])
 
-    #combining activation of sixth convolution with output of previous layer
+    #combining activation of sixth convolution with output activations of previous layer
     #TODO: check if required for last column
-    aug_x[0] = tf.concat(3, [out_x[0],x_sans_xa], name='concat_x_and_a_sans_xa') #xx
+    #TODO: check shape
+    aug_x[0] = tf.concat(3, [xx_concat, x_sans_xa], name='concat_x_and_a_sans_xa')
 
-    aug_x[1] = out_x[1]     #pc + poc
-    aug_x[2] = out_x[2]     #indiv_preds
-    aug_x[3] = out_x[3]     #indiv_nw
-    aug_x[4] = out_x[4]     #loss
+    aug_x[1] = out_x_ll0[1]     #pc + poc
+    aug_x[2] = out_x_ll0[2]     #indiv_preds
+    aug_x[3] = out_x_ll0[3]     #indiv_nw
+    aug_x[4] = out_x_ll0[4]     #loss
+    aug_x[5] = out_x_ll1[1]     #pc + poc
+    aug_x[6] = out_x_ll1[2]     #indiv_preds
+    aug_x[7] = out_x_ll1[3]     #indiv_nw
+    aug_x[8] = out_x_ll1[4]     #loss
 
-    if(i == 0):
-      all_preds = aug_x[1]
-      all_cents = res_step['pc']
-    else:  
-      all_preds = tf.concat(1,[all_preds, tf.cast(aug_x[1], tf.float32)])
-      all_cents = tf.concat(1,[all_cents, tf.cast(res_step['pc'], tf.float32)])
+    # if(i == 0):
+    #   all_preds = aug_x[1]
+    #   all_cents = res_step['pc']
+    # else:  
+    #   all_preds = tf.concat(1,[all_preds, tf.cast(aug_x[1], tf.float32)])
+    #   all_cents = tf.concat(1,[all_cents, tf.cast(res_step['pc'], tf.float32)])
 
-  gt_loc = tf.convert_to_tensor(gt_loc)
-  gt_loc = tf.cast(gt_loc, tf.float32)
-  gt_loc = tf.reshape(gt_loc, [tf.shape(gt_loc)[0],1, tf.shape(gt_loc)[1],1])
+  # gt_loc_ll0 = gt_loc[0]
+  # gt_loc_ll1 = gt_loc[1]
+
+  gt_loc_ll0 = tf.cast(tf.convert_to_tensor(gt_loc_ll0), tf.float32)
+  gt_loc_ll0 = tf.reshape(gt_loc_ll0, [tf.shape(gt_loc_ll0)[0],1, tf.shape(gt_loc_ll0)[1],1])
+
+  gt_loc_ll1 = tf.cast(tf.convert_to_tensor(gt_loc_ll1), tf.float32)
+  gt_loc_ll1 = tf.reshape(gt_loc_ll1, [tf.shape(gt_loc_ll1)[0],1, tf.shape(gt_loc_ll1)[1],1])  
 
   #Compute the loss.
-  target_loss, target_residue = computePredictionLossSL1(res_step['x'][1], gt_loc, transition_dist)
-  offs_loss, offs_residue = computePredictionLossSL1(res_step['x'][2], gt_loc, transition_dist)
+  target_loss_ll0, target_residue_ll0 = computePredictionLossSL1((res_step[0])['x'][1], gt_loc_ll0, transition_dist)
+  target_loss_ll1, target_residue_ll1 = computePredictionLossSL1((res_step[1])['x'][1], gt_loc_ll1, transition_dist)
+  target_loss = tf.add(target_loss_ll0, target_loss_ll1)  
+  target_residue = tf.add(target_residue_ll0, target_residue_ll1)  
 
-  offs_loss = tf.reduce_sum(tf.multiply(offs_loss, res_step['x'][3]), axis=1)
-  offs_loss = tf.reshape(offs_loss, [tf.shape(offs_loss)[0],1,1,1])
+  offs_loss_ll0, offs_residue_ll0 = computePredictionLossSL1((res_step[0])['x'][2], gt_loc_ll0, transition_dist)
+  offs_loss_ll0 = tf.reduce_sum(tf.multiply(offs_loss_ll0, res_step[0]['x'][3]), axis=1)
+  offs_loss_ll0 = tf.reshape(offs_loss_ll0, [tf.shape(offs_loss_ll0)[0],1,1,1])
 
-  loss = tf.add(tf.add(target_loss, res_step['x'][4]),
+  offs_loss_ll1, offs_residue_ll1 = computePredictionLossSL1((res_step[1])['x'][2], gt_loc_ll1, transition_dist)
+  offs_loss_ll1 = tf.reduce_sum(tf.multiply(offs_loss_ll1, res_step[1]['x'][3]), axis=1)
+  offs_loss_ll1 = tf.reshape(offs_loss_ll1, [tf.shape(offs_loss_ll1)[0],1,1,1])  
+
+  offs_loss = tf.add(offs_loss_ll0, offs_loss_ll1)
+  offs_residue = tf.add(offs_residue_ll0, offs_residue_ll1)
+  res_step_loss = tf.add((res_step[0])['x'][4], (res_step[1])['x'][4])
+
+  loss = tf.add(tf.add(target_loss, res_step_loss),
                 tf.multiply(offs_loss, offset_pred_weight))
-  
-  pred = res_step['x'][1]
 
   # res_aux = {}
-  # res = res_ip1;
   res_aux['loss'] = loss    # == res.x = loss; line 64 of 'centroidChainGrid9LossLayer()'
-  res_aux['pred'] = pred  
-  res_aux['all_preds'] = all_preds  
-  res_aux['all_cents'] = all_cents  
+  # res_aux['all_preds'] = all_preds  
+  # res_aux['all_cents'] = all_cents  
   res_aux['res_steps'] = res_steps  
-  # res.aux.nzw_frac = 0;
   res_aux['target_residue'] = target_residue  
   res_aux['offs_residue'] = offs_residue  
   res_aux['offs_loss'] = tf.multiply(offs_loss, offset_pred_weight)  
 
   return res_aux
 
-def inference(images,out_locs,org_gt_coords):
+def inference(images,out_locs,org_gt_coords_ll0, org_gt_coords_ll1):
   # conv1
   with tf.variable_scope('conv1') as scope:
     kernel = _variable_with_weight_decay('weights',
@@ -419,12 +450,10 @@ def inference(images,out_locs,org_gt_coords):
     pre_activation = tf.nn.bias_add(conv, biases)
     conv6 = tf.nn.relu(pre_activation, name=scope.name)  
 
-  res_aux = doForwardPass(conv6, out_locs, org_gt_coords)
+  res_aux = doForwardPass(conv6, out_locs, org_gt_coords_ll0, org_gt_coords_ll1)
   return res_aux
 
 def train(res_aux, global_step):
-
-  # print(tf.get_collection('weights_col2')[0].get_shape().as_list())
 
   ret_dict = {}
   ret_dict['loss'] = tf.reduce_sum(res_aux['loss'])
@@ -453,7 +482,9 @@ def train(res_aux, global_step):
   minimizer_col2 = a_optimizer_col_2.minimize(col_2_loss, var_list=var_list_2, global_step=global_step)
   ret_dict['minimizer_col2'] = minimizer_col2
 
-  col_1_loss = tf.reduce_sum((res_aux['res_steps'][2])['x'][4])
+  col_1_loss_ll0 = tf.reduce_sum(((res_aux['res_steps'][2])[0])['x'][4])
+  col_1_loss_ll1 = tf.reduce_sum(((res_aux['res_steps'][2])[1])['x'][4])
+  col_1_loss = tf.add(col_1_loss_ll0, col_1_loss_ll1)
 
   # a_optimizer_col_1 = tf.train.AdamOptimizer()
   # a_optimizer_col_1.__init__(
@@ -476,7 +507,9 @@ def train(res_aux, global_step):
   minimizer_col1 = a_optimizer_col_1.minimize(col_1_loss, var_list=var_list_1, global_step=global_step)
   ret_dict['minimizer_col1'] = minimizer_col1
 
-  col_0_loss = tf.reduce_sum((res_aux['res_steps'][1])['x'][4])
+  col_0_loss_ll0 = tf.reduce_sum(((res_aux['res_steps'][1])[0])['x'][4])
+  col_0_loss_ll1 = tf.reduce_sum(((res_aux['res_steps'][1])[1])['x'][4])
+  col_0_loss = tf.add(col_0_loss_ll0, col_0_loss_ll1)
 
   # a_optimizer_col_0 = tf.train.AdamOptimizer()
   # a_optimizer_col_0.__init__(

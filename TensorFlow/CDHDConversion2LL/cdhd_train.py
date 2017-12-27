@@ -110,11 +110,12 @@ def getImageMetaRecords():
 global_step = tf.Variable(0, trainable=False, dtype=tf.int32)
 images = tf.placeholder(dtype=tf.float32, shape=[batch_size, None, None, 3])
 out_locs = tf.placeholder(dtype=tf.float32, shape=[None, 2])
-org_gt_coords = tf.placeholder(dtype=tf.float32, shape=[batch_size, 2])   
+org_gt_coords_ll0 = tf.placeholder(dtype=tf.float32, shape=[batch_size, 2])   
+org_gt_coords_ll1 = tf.placeholder(dtype=tf.float32, shape=[batch_size, 2])   
 
 stats_dict = computeNormalizationParameters() 
 
-res_aux = cdhd.inference(images,out_locs,org_gt_coords)
+res_aux = cdhd.inference(images, out_locs, org_gt_coords_ll0, org_gt_coords_ll1)
 
 ret_dict = cdhd.train(res_aux, global_step)
 
@@ -147,7 +148,8 @@ with tf.Session() as sess:
       out_dict = sess.run(ret_dict, feed_dict=
                             {images: distorted_images, 
                             out_locs: meta['out_locs'],
-                            org_gt_coords: meta['org_gt_coords']})
+                            org_gt_coords_ll0: meta['org_gt_coords_ll0'],
+                            org_gt_coords_ll1: meta['org_gt_coords_ll1']})
 
       # print('global_step: %s' % tf.train.global_step(sess, global_step))
 
