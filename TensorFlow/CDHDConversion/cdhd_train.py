@@ -150,9 +150,6 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=True)) as sess:
                             out_locs: meta['out_locs'],
                             org_gt_coords: meta['org_gt_coords']})
 
-      # print('global_step: %s' % tf.train.global_step(sess, global_step))
-
-      print(str(batch) + ' ' + str(out_dict['loss']))
       # print('poc_shape: ', out_dict['poc_shape'])
 
       out_f = open('out_file.txt', 'a+')
@@ -165,5 +162,6 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=True)) as sess:
     print("Model saved in file: %s" % save_path)
 
     duration = time.time() - start_time
+    print('time taken for epoch ' + str(epoch) + ': ' + str(duration))
 
   writer.close() 

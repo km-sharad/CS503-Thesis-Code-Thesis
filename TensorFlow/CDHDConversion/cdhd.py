@@ -285,9 +285,6 @@ def doForwardPass(x, out_locs, gt_loc):
 
   aug_x = [x, None, None, None, 0]
 
-  # all_preds = None
-  # all_cents = None
-
   res_step = None
   for i in xrange(steps):
     res_step = columnActivation(aug_x, i, fwd_dict)
@@ -314,13 +311,6 @@ def doForwardPass(x, out_locs, gt_loc):
     aug_x[3] = out_x[3]     #indiv_nw
     aug_x[4] = out_x[4]     #loss
 
-    # if(i == 0):
-    #   all_preds = aug_x[1]
-    #   all_cents = res_step['pc']
-    # else:  
-    #   all_preds = tf.concat(1,[all_preds, tf.cast(aug_x[1], tf.float32)])
-    #   all_cents = tf.concat(1,[all_cents, tf.cast(res_step['pc'], tf.float32)])
-
   gt_loc = tf.convert_to_tensor(gt_loc)
   gt_loc = tf.cast(gt_loc, tf.float32)
   gt_loc = tf.reshape(gt_loc, [tf.shape(gt_loc)[0],1, tf.shape(gt_loc)[1],1])
@@ -338,8 +328,6 @@ def doForwardPass(x, out_locs, gt_loc):
   # res_aux = {}
   # res = res_ip1;
   res_aux['loss'] = loss    # == res.x = loss; line 64 of 'centroidChainGrid9LossLayer()'
-  # res_aux['all_preds'] = all_preds  
-  # res_aux['all_cents'] = all_cents  
   res_aux['res_steps'] = res_steps  
   # res.aux.nzw_frac = 0;
   res_aux['target_residue'] = target_residue  
@@ -439,15 +427,15 @@ def train(res_aux, global_step):
 
   # a_optimizer_col_2 = tf.train.AdamOptimizer()
   # a_optimizer_col_2.__init__(
-  #   learning_rate=0.00001,
+  #   learning_rate=0.001,
   #   beta1=0.9,
   #   beta2=0.999,
   #   epsilon=1e-08,
   #   use_locking=False,
   #   name='Adam_2')
 
-  a_optimizer_col_2 = tf.train.GradientDescentOptimizer(learning_rate=0.001) 
-  # a_optimizer_col_2 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003) 
+  # a_optimizer_col_2 = tf.train.GradientDescentOptimizer(learning_rate=0.001) 
+  a_optimizer_col_2 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003) 
 
   var_list_2 = []
   var_list_2 = var_list_2 + tf.get_collection('weights_col2')
@@ -462,15 +450,15 @@ def train(res_aux, global_step):
 
   # a_optimizer_col_1 = tf.train.AdamOptimizer()
   # a_optimizer_col_1.__init__(
-  #   learning_rate=0.00001,
+  #   learning_rate=0.001,
   #   beta1=0.9,
   #   beta2=0.999,
   #   epsilon=1e-08,
   #   use_locking=False,
   #   name='Adam_1')
 
-  a_optimizer_col_1 = tf.train.GradientDescentOptimizer(learning_rate=0.001)
-  # a_optimizer_col_1 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003)  
+  # a_optimizer_col_1 = tf.train.GradientDescentOptimizer(learning_rate=0.001)
+  a_optimizer_col_1 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003)  
 
   var_list_1 = []
   var_list_1 = var_list_1 + tf.get_collection('weights_col1')
@@ -485,15 +473,15 @@ def train(res_aux, global_step):
 
   # a_optimizer_col_0 = tf.train.AdamOptimizer()
   # a_optimizer_col_0.__init__(
-  #   learning_rate=0.00001,
+  #   learning_rate=0.001,
   #   beta1=0.9,
   #   beta2=0.999,
   #   epsilon=1e-08,
   #   use_locking=False,
   #   name='Adam_0')
 
-  a_optimizer_col_0 = tf.train.GradientDescentOptimizer(learning_rate=0.001) 
-  # a_optimizer_col_0 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003) 
+  # a_optimizer_col_0 = tf.train.GradientDescentOptimizer(learning_rate=0.001) 
+  a_optimizer_col_0 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003) 
   
   var_list_0 = []
   var_list_0 = var_list_0 + tf.get_collection('weights_col0')
