@@ -30,9 +30,9 @@ def _variable_on_cpu(name, shape, initializer):
   Returns:
     Variable Tensor
   """
-  with tf.device('/cpu:0'):
-    var = tf.get_variable(name, shape, initializer=initializer, dtype=tf.float32, trainable=True)
-    tf.add_to_collection(name, var)
+  # with tf.device('/cpu:0'):
+  var = tf.get_variable(name, shape, initializer=initializer, dtype=tf.float32, trainable=True)
+  tf.add_to_collection(name, var)
 
   return var
 
@@ -183,7 +183,8 @@ def columnActivation(aug_x, column_num, fwd_dict):
   of_y = tf.reshape(of_y, [tf.shape(of_y)[0], tf.shape(of_y)[1], tf.shape(of_y)[2], 1])
 
   #po = p(i) of eq 2 from section 3.3 of paper
-  po = tf.concat(3, [of_x, of_y], name="conct_of_x_of_y_into_po")
+  # po = tf.concat(3, [of_x, of_y], name="conct_of_x_of_y_into_po")
+  po = tf.concat([of_x, of_y], 3, name="conct_of_x_of_y_into_po")
 
   poc = tf.reduce_sum(tf.multiply(po,nw), axis=(1,2))
   poc = tf.reshape(poc, [tf.shape(poc)[0], 1, tf.shape(poc)[1], 1])
@@ -268,7 +269,8 @@ def doForwardPass(x, out_locs, gt_loc):
   xa = tf.multiply(tf.cast(tf.divide(tf.ones([tf.shape(x)[0], \
                 tf.shape(x)[1],tf.shape(x)[2],1], tf.int32), n), tf.float32), pred_factor)
 
-  x = tf.concat(3, [xa,x])    #IN NEWER VERSION OF TF CORRECT COMMAND IS: tf.concat([xa,x], 3)
+  # x = tf.concat(3, [xa,x])    #IN NEWER VERSION OF TF CORRECT COMMAND IS: tf.concat([xa,x], 3)
+  x = tf.concat([xa,x], 3)    
 
   res_steps = []
 
@@ -283,8 +285,8 @@ def doForwardPass(x, out_locs, gt_loc):
 
   aug_x = [x, None, None, None, 0]
 
-  all_preds = None
-  all_cents = None
+  # all_preds = None
+  # all_cents = None
 
   res_step = None
   for i in xrange(steps):
@@ -304,19 +306,20 @@ def doForwardPass(x, out_locs, gt_loc):
 
     #combining activation of sixth convolution with output of previous layer
     #TODO: check if required for last column
-    aug_x[0] = tf.concat(3, [out_x[0],x_sans_xa], name='concat_x_and_a_sans_xa') #xx
+    # aug_x[0] = tf.concat(3, [out_x[0],x_sans_xa], name='concat_x_and_a_sans_xa') #xx
+    aug_x[0] = tf.concat([out_x[0],x_sans_xa], 3, name='concat_x_and_a_sans_xa') #xx
 
     aug_x[1] = out_x[1]     #pc + poc
     aug_x[2] = out_x[2]     #indiv_preds
     aug_x[3] = out_x[3]     #indiv_nw
     aug_x[4] = out_x[4]     #loss
 
-    if(i == 0):
-      all_preds = aug_x[1]
-      all_cents = res_step['pc']
-    else:  
-      all_preds = tf.concat(1,[all_preds, tf.cast(aug_x[1], tf.float32)])
-      all_cents = tf.concat(1,[all_cents, tf.cast(res_step['pc'], tf.float32)])
+    # if(i == 0):
+    #   all_preds = aug_x[1]
+    #   all_cents = res_step['pc']
+    # else:  
+    #   all_preds = tf.concat(1,[all_preds, tf.cast(aug_x[1], tf.float32)])
+    #   all_cents = tf.concat(1,[all_cents, tf.cast(res_step['pc'], tf.float32)])
 
   gt_loc = tf.convert_to_tensor(gt_loc)
   gt_loc = tf.cast(gt_loc, tf.float32)
@@ -332,14 +335,11 @@ def doForwardPass(x, out_locs, gt_loc):
   loss = tf.add(tf.add(target_loss, res_step['x'][4]),
                 tf.multiply(offs_loss, offset_pred_weight))
   
-  pred = res_step['x'][1]
-
   # res_aux = {}
   # res = res_ip1;
   res_aux['loss'] = loss    # == res.x = loss; line 64 of 'centroidChainGrid9LossLayer()'
-  res_aux['pred'] = pred  
-  res_aux['all_preds'] = all_preds  
-  res_aux['all_cents'] = all_cents  
+  # res_aux['all_preds'] = all_preds  
+  # res_aux['all_cents'] = all_cents  
   res_aux['res_steps'] = res_steps  
   # res.aux.nzw_frac = 0;
   res_aux['target_residue'] = target_residue  

@@ -91,7 +91,7 @@ def getImage(meta_rec, stats_dict):
     im_meta_dict['gt_x_coord'] = int(float(meta_rec[0]))
     im_meta_dict['gt_y_coord'] = int(float(meta_rec[1]))
     im_meta_dict['img_size'] = [int(i) for i in meta_rec[3].split(',')]
-    im_meta_dict['bbox'] = [int(i) for i in meta_rec[8][0:len(meta_rec[8]) - 2].split(',')]    
+    im_meta_dict['bbox'] = [int(i) for i in meta_rec[8].strip()[0:len(meta_rec[8]) - 1].split(',')]    
 
     image = Image.open(data_dir + meta_rec[2])
 
