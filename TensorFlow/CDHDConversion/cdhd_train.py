@@ -122,8 +122,8 @@ init = tf.global_variables_initializer()
 
 saver = tf.train.Saver(max_to_keep=0)
 
-# with tf.Session() as sess:
-with tf.Session(config=tf.ConfigProto(log_device_placement=True)) as sess:  
+with tf.Session() as sess:
+# with tf.Session(config=tf.ConfigProto(log_device_placement=True)) as sess:  
   writer = tf.summary.FileWriter('./graphs', sess.graph)
   sess.run(init)
 

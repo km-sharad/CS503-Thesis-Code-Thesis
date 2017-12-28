@@ -108,37 +108,59 @@ def columnActivation(aug_x, column_num, fwd_dict):
   num_out_filters = fwd_dict['num_out_filters']
   out_locs = fwd_dict['out_locs']
 
-  with tf.variable_scope('col' + str(column_num) + '1') as scope:
-    kernel = _variable_with_weight_decay('weights_col' + str(column_num),
+  with tf.variable_scope('col' + str(column_num)) as scope:
+    kernel = _variable_with_weight_decay('col' + str(column_num) + 'row1weights',
                                          shape=[5, 5, nfc + 1, nfc],
                                          stddev=1,  #check if this is right
                                          wd=0.0)
     kernel = tf.multiply(kernel, 0.0249)      #line 327-334 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
     conv = tf.nn.conv2d(x, kernel, [1, 1, 1, 1], padding='SAME')
-    biases = _variable_on_cpu('biases_col' + str(column_num), [nfc], tf.constant_initializer(0.1))
+    biases = _variable_on_cpu('col' + str(column_num) + 'row1biases', [nfc], tf.constant_initializer(0.1))
     a = tf.nn.bias_add(conv, biases)
     a = tf.nn.relu(a, name=scope.name)
 
-  with tf.variable_scope('col' + str(column_num) + '2') as scope:
-    kernel = _variable_with_weight_decay('weights_col' + str(column_num),
-                                         shape=[5, 5, nfc, nfc],
-                                         stddev=1,  #check if this is right
-                                         wd=0.0)
-    kernel = tf.multiply(kernel, 0.0250)      #line 327-334 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
-    conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
-    biases = _variable_on_cpu('biases_col' + str(column_num), [nfc], tf.constant_initializer(0.1))
-    a = tf.nn.bias_add(conv, biases)
-    a = tf.nn.relu(a, name=scope.name)
+  if(column_num == 0):
+    with tf.variable_scope('row2') as scope:
+      kernel = _variable_with_weight_decay('row2weights',
+                                           shape=[5, 5, nfc, nfc],
+                                           stddev=1,  #check if this is right
+                                           wd=0.0)
+      kernel = tf.multiply(kernel, 0.0250)      #line 327-334 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
+      conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
+      biases = _variable_on_cpu('row2biases', [nfc], tf.constant_initializer(0.1))
+      a = tf.nn.bias_add(conv, biases)
+      a = tf.nn.relu(a, name=scope.name)  
 
-  with tf.variable_scope('col' + str(column_num) + '3') as scope:
-    kernel = _variable_with_weight_decay('weights_col' + str(column_num),
-                                         shape=[5, 5, nfc, num_out_filters],
-                                         stddev=1,  #check if this is right
-                                         wd=0.0)
-    kernel = tf.multiply(kernel, 0.0250)      #line 327-334 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
-    conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
-    biases = _variable_on_cpu('biases_col' + str(column_num), [num_out_filters], tf.constant_initializer(0.1))
-    a = tf.nn.bias_add(conv, biases)
+    with tf.variable_scope('row3') as scope:
+      kernel = _variable_with_weight_decay('row3weights',
+                                           shape=[5, 5, nfc, num_out_filters],
+                                           stddev=1,  #check if this is right
+                                           wd=0.0)
+      kernel = tf.multiply(kernel, 0.0250)      #line 327-334 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
+      conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
+      biases = _variable_on_cpu('row3biases', [num_out_filters], tf.constant_initializer(0.1))
+      a = tf.nn.bias_add(conv, biases)                
+  else:
+    with tf.variable_scope('row2', reuse=True) as scope:
+      kernel = _variable_with_weight_decay('row2weights',
+                                           shape=[5, 5, nfc, nfc],
+                                           stddev=1,  #check if this is right
+                                           wd=0.0)
+      kernel = tf.multiply(kernel, 0.0250)      #line 327-334 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
+      conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
+      biases = _variable_on_cpu('row2biases', [nfc], tf.constant_initializer(0.1))
+      a = tf.nn.bias_add(conv, biases)
+      a = tf.nn.relu(a, name=scope.name)
+
+    with tf.variable_scope('row3', reuse=True) as scope:
+      kernel = _variable_with_weight_decay('row3weights',
+                                           shape=[5, 5, nfc, num_out_filters],
+                                           stddev=1,  #check if this is right
+                                           wd=0.0)
+      kernel = tf.multiply(kernel, 0.0250)      #line 327-334 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
+      conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
+      biases = _variable_on_cpu('row3biases', [num_out_filters], tf.constant_initializer(0.1))
+      a = tf.nn.bias_add(conv, biases)      
 
   #e.g.: a shape: [10, 42, 32, 26], w shape: [10, 42, 32, 1]
   w = a[:, :, :, 0:1]
@@ -415,10 +437,18 @@ def inference(images,out_locs,org_gt_coords):
   res_aux = doForwardPass(conv6, out_locs, org_gt_coords)
   return res_aux
 
+def getSharedParametersList():
+  var_list = []
+  var_list = var_list + tf.get_collection('row2weights')
+  var_list = var_list + tf.get_collection('row2biases')  
+  var_list = var_list + tf.get_collection('row3weights')
+  var_list = var_list + tf.get_collection('row3biases')    
+  var_list = var_list + tf.get_collection('weights') 
+  var_list = var_list + tf.get_collection('biases')
+
+  return var_list
+
 def train(res_aux, global_step):
-
-  # print(tf.get_collection('weights_col2')[0].get_shape().as_list())
-
   ret_dict = {}
   ret_dict['loss'] = tf.reduce_sum(res_aux['loss'])
   # ret_dict['poc_shape'] = res_aux['res_steps'][2]['poc_shape']  #DELETE
@@ -434,14 +464,13 @@ def train(res_aux, global_step):
   #   use_locking=False,
   #   name='Adam_2')
 
-  # a_optimizer_col_2 = tf.train.GradientDescentOptimizer(learning_rate=0.001) 
-  a_optimizer_col_2 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003) 
+  a_optimizer_col_2 = tf.train.GradientDescentOptimizer(learning_rate=0.01) 
+  # a_optimizer_col_2 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003) 
 
   var_list_2 = []
-  var_list_2 = var_list_2 + tf.get_collection('weights_col2')
-  var_list_2 = var_list_2 + tf.get_collection('biases_col2')
-  var_list_2 = var_list_2 + tf.get_collection('weights') 
-  var_list_2 = var_list_2 + tf.get_collection('biases')
+  var_list_2 = var_list_2 + tf.get_collection('col2row1weights')
+  var_list_2 = var_list_2 + tf.get_collection('col2row1biases')
+  var_list_2 = var_list_2 + getSharedParametersList()
 
   minimizer_col2 = a_optimizer_col_2.minimize(col_2_loss, var_list=var_list_2, global_step=global_step)
   ret_dict['minimizer_col2'] = minimizer_col2
@@ -457,14 +486,13 @@ def train(res_aux, global_step):
   #   use_locking=False,
   #   name='Adam_1')
 
-  # a_optimizer_col_1 = tf.train.GradientDescentOptimizer(learning_rate=0.001)
+  # a_optimizer_col_1 = tf.train.GradientDescentOptimizer(learning_rate=0.01)
   a_optimizer_col_1 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003)  
 
   var_list_1 = []
-  var_list_1 = var_list_1 + tf.get_collection('weights_col1')
-  var_list_1 = var_list_1 + tf.get_collection('biases_col1')
-  var_list_1 = var_list_1 + tf.get_collection('weights') 
-  var_list_1 = var_list_1 + tf.get_collection('biases')
+  var_list_1 = var_list_1 + tf.get_collection('col1row1weights')
+  var_list_1 = var_list_1 + tf.get_collection('col1row1biases')
+  var_list_1 = var_list_1 + getSharedParametersList()
 
   minimizer_col1 = a_optimizer_col_1.minimize(col_1_loss, var_list=var_list_1, global_step=global_step)
   ret_dict['minimizer_col1'] = minimizer_col1
@@ -480,14 +508,13 @@ def train(res_aux, global_step):
   #   use_locking=False,
   #   name='Adam_0')
 
-  # a_optimizer_col_0 = tf.train.GradientDescentOptimizer(learning_rate=0.001) 
+  # a_optimizer_col_0 = tf.train.GradientDescentOptimizer(learning_rate=0.01) 
   a_optimizer_col_0 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003) 
   
   var_list_0 = []
-  var_list_0 = var_list_0 + tf.get_collection('weights_col0')
-  var_list_0 = var_list_0 + tf.get_collection('biases_col0')
-  var_list_0 = var_list_0 + tf.get_collection('weights') 
-  var_list_0 = var_list_0 + tf.get_collection('biases')
+  var_list_0 = var_list_0 + tf.get_collection('col0row1weights')
+  var_list_0 = var_list_0 + tf.get_collection('col0row1biases')
+  var_list_0 = var_list_0 + getSharedParametersList()  
 
   minimizer_col0 = a_optimizer_col_0.minimize(col_0_loss, var_list=var_list_0, global_step=global_step)
   ret_dict['minimizer_col0'] = minimizer_col0
