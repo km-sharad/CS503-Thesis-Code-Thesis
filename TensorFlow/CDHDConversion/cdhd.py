@@ -205,8 +205,8 @@ def columnActivation(aug_x, column_num, fwd_dict):
   of_y = tf.reshape(of_y, [tf.shape(of_y)[0], tf.shape(of_y)[1], tf.shape(of_y)[2], 1])
 
   #po = p(i) of eq 2 from section 3.3 of paper
-  # po = tf.concat(3, [of_x, of_y], name="conct_of_x_of_y_into_po")
-  po = tf.concat([of_x, of_y], 3, name="conct_of_x_of_y_into_po")
+  po = tf.concat(3, [of_x, of_y], name="conct_of_x_of_y_into_po")
+  # po = tf.concat([of_x, of_y], 3, name="conct_of_x_of_y_into_po")
 
   poc = tf.reduce_sum(tf.multiply(po,nw), axis=(1,2))
   poc = tf.reshape(poc, [tf.shape(poc)[0], 1, tf.shape(poc)[1], 1])
@@ -291,8 +291,8 @@ def doForwardPass(x, out_locs, gt_loc):
   xa = tf.multiply(tf.cast(tf.divide(tf.ones([tf.shape(x)[0], \
                 tf.shape(x)[1],tf.shape(x)[2],1], tf.int32), n), tf.float32), pred_factor)
 
-  # x = tf.concat(3, [xa,x])    #IN NEWER VERSION OF TF CORRECT COMMAND IS: tf.concat([xa,x], 3)
-  x = tf.concat([xa,x], 3)    
+  x = tf.concat(3, [xa,x])    #IN NEWER VERSION OF TF CORRECT COMMAND IS: tf.concat([xa,x], 3)
+  # x = tf.concat([xa,x], 3)    
 
   res_steps = []
 
@@ -325,8 +325,8 @@ def doForwardPass(x, out_locs, gt_loc):
 
     #combining activation of sixth convolution with output of previous layer
     #TODO: check if required for last column
-    # aug_x[0] = tf.concat(3, [out_x[0],x_sans_xa], name='concat_x_and_a_sans_xa') #xx
-    aug_x[0] = tf.concat([out_x[0],x_sans_xa], 3, name='concat_x_and_a_sans_xa') #xx
+    aug_x[0] = tf.concat(3, [out_x[0],x_sans_xa], name='concat_x_and_a_sans_xa') #xx
+    # aug_x[0] = tf.concat([out_x[0],x_sans_xa], 3, name='concat_x_and_a_sans_xa') #xx
 
     aug_x[1] = out_x[1]     #pc + poc
     aug_x[2] = out_x[2]     #indiv_preds
@@ -336,6 +336,8 @@ def doForwardPass(x, out_locs, gt_loc):
   gt_loc = tf.convert_to_tensor(gt_loc)
   gt_loc = tf.cast(gt_loc, tf.float32)
   gt_loc = tf.reshape(gt_loc, [tf.shape(gt_loc)[0],1, tf.shape(gt_loc)[1],1])
+
+  res_aux['pred_coord'] = res_step['x'][1]  
 
   #Compute the loss.
   target_loss, target_residue = computePredictionLossSL1(res_step['x'][1], gt_loc, transition_dist)
@@ -435,6 +437,7 @@ def inference(images,out_locs,org_gt_coords):
     conv6 = tf.nn.relu(pre_activation, name=scope.name)  
 
   res_aux = doForwardPass(conv6, out_locs, org_gt_coords)
+
   return res_aux
 
 def getSharedParametersList():
@@ -450,21 +453,21 @@ def getSharedParametersList():
 
 def train(res_aux, global_step):
   ret_dict = {}
-  ret_dict['loss'] = tf.reduce_sum(res_aux['loss'])
-  # ret_dict['poc_shape'] = res_aux['res_steps'][2]['poc_shape']  #DELETE
+  ret_dict['loss'] = res_aux['loss']
+  ret_dict['pred_coord'] = res_aux['pred_coord']
 
   col_2_loss = tf.reduce_sum(res_aux['loss'])
 
-  # a_optimizer_col_2 = tf.train.AdamOptimizer()
-  # a_optimizer_col_2.__init__(
-  #   learning_rate=0.001,
-  #   beta1=0.9,
-  #   beta2=0.999,
-  #   epsilon=1e-08,
-  #   use_locking=False,
-  #   name='Adam_2')
+  a_optimizer_col_2 = tf.train.AdamOptimizer()
+  a_optimizer_col_2.__init__(
+    learning_rate=0.001,
+    beta1=0.9,
+    beta2=0.999,
+    epsilon=1e-08,
+    use_locking=False,
+    name='Adam_2')
 
-  a_optimizer_col_2 = tf.train.GradientDescentOptimizer(learning_rate=0.01) 
+  # a_optimizer_col_2 = tf.train.GradientDescentOptimizer(learning_rate=0.001) 
   # a_optimizer_col_2 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003) 
 
   var_list_2 = []
@@ -477,17 +480,17 @@ def train(res_aux, global_step):
 
   col_1_loss = tf.reduce_sum((res_aux['res_steps'][2])['x'][4])
 
-  # a_optimizer_col_1 = tf.train.AdamOptimizer()
-  # a_optimizer_col_1.__init__(
-  #   learning_rate=0.001,
-  #   beta1=0.9,
-  #   beta2=0.999,
-  #   epsilon=1e-08,
-  #   use_locking=False,
-  #   name='Adam_1')
+  a_optimizer_col_1 = tf.train.AdamOptimizer()
+  a_optimizer_col_1.__init__(
+    learning_rate=0.001,
+    beta1=0.9,
+    beta2=0.999,
+    epsilon=1e-08,
+    use_locking=False,
+    name='Adam_1')
 
-  # a_optimizer_col_1 = tf.train.GradientDescentOptimizer(learning_rate=0.01)
-  a_optimizer_col_1 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003)  
+  # a_optimizer_col_1 = tf.train.GradientDescentOptimizer(learning_rate=0.001)
+  # a_optimizer_col_1 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003)  
 
   var_list_1 = []
   var_list_1 = var_list_1 + tf.get_collection('col1row1weights')
@@ -499,17 +502,17 @@ def train(res_aux, global_step):
 
   col_0_loss = tf.reduce_sum((res_aux['res_steps'][1])['x'][4])
 
-  # a_optimizer_col_0 = tf.train.AdamOptimizer()
-  # a_optimizer_col_0.__init__(
-  #   learning_rate=0.001,
-  #   beta1=0.9,
-  #   beta2=0.999,
-  #   epsilon=1e-08,
-  #   use_locking=False,
-  #   name='Adam_0')
+  a_optimizer_col_0 = tf.train.AdamOptimizer()
+  a_optimizer_col_0.__init__(
+    learning_rate=0.001,
+    beta1=0.9,
+    beta2=0.999,
+    epsilon=1e-08,
+    use_locking=False,
+    name='Adam_0')
 
-  # a_optimizer_col_0 = tf.train.GradientDescentOptimizer(learning_rate=0.01) 
-  a_optimizer_col_0 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003) 
+  # a_optimizer_col_0 = tf.train.GradientDescentOptimizer(learning_rate=0.001) 
+  # a_optimizer_col_0 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003) 
   
   var_list_0 = []
   var_list_0 = var_list_0 + tf.get_collection('col0row1weights')
