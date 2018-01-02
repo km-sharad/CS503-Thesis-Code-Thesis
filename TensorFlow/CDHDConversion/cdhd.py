@@ -337,7 +337,7 @@ def doForwardPass(x, out_locs, gt_loc):
   gt_loc = tf.cast(gt_loc, tf.float32)
   gt_loc = tf.reshape(gt_loc, [tf.shape(gt_loc)[0],1, tf.shape(gt_loc)[1],1])
 
-  res_aux['pred_coord'] = res_step['x'][1]  
+  res_aux['pred_coord'] = res_step['x'][1] 
 
   #Compute the loss.
   target_loss, target_residue = computePredictionLossSL1(res_step['x'][1], gt_loc, transition_dist)
@@ -437,7 +437,6 @@ def inference(images,out_locs,org_gt_coords):
     conv6 = tf.nn.relu(pre_activation, name=scope.name)  
 
   res_aux = doForwardPass(conv6, out_locs, org_gt_coords)
-
   return res_aux
 
 def getSharedParametersList():
@@ -453,8 +452,9 @@ def getSharedParametersList():
 
 def train(res_aux, global_step):
   ret_dict = {}
-  ret_dict['loss'] = res_aux['loss']
+  ret_dict['loss'] = tf.reduce_sum(res_aux['loss'])
   ret_dict['pred_coord'] = res_aux['pred_coord']
+  # ret_dict['poc_shape'] = res_aux['res_steps'][2]['poc_shape']  #DELETE
 
   col_2_loss = tf.reduce_sum(res_aux['loss'])
 
@@ -467,7 +467,7 @@ def train(res_aux, global_step):
     use_locking=False,
     name='Adam_2')
 
-  # a_optimizer_col_2 = tf.train.GradientDescentOptimizer(learning_rate=0.001) 
+  # a_optimizer_col_2 = tf.train.GradientDescentOptimizer(learning_rate=0.01) 
   # a_optimizer_col_2 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003) 
 
   var_list_2 = []
@@ -489,7 +489,7 @@ def train(res_aux, global_step):
     use_locking=False,
     name='Adam_1')
 
-  # a_optimizer_col_1 = tf.train.GradientDescentOptimizer(learning_rate=0.001)
+  # a_optimizer_col_1 = tf.train.GradientDescentOptimizer(learning_rate=0.01)
   # a_optimizer_col_1 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003)  
 
   var_list_1 = []
@@ -511,7 +511,7 @@ def train(res_aux, global_step):
     use_locking=False,
     name='Adam_0')
 
-  # a_optimizer_col_0 = tf.train.GradientDescentOptimizer(learning_rate=0.001) 
+  # a_optimizer_col_0 = tf.train.GradientDescentOptimizer(learning_rate=0.01) 
   # a_optimizer_col_0 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003) 
   
   var_list_0 = []

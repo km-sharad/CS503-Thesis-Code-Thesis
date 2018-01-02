@@ -7,17 +7,12 @@ import numpy as np
 import time
 import cdhd_input
 from tensorflow.python import debug as tf_debug
-import sys
-from scipy.misc import toimage
 
 total_visible_training_images = 1920    # Number of training images where car door handle is visible
-total_visible_validation_images = 680      # Number of validation images where car door handle is visible
+total_visible_validation_images = 680 # Number of validation images where car door handle is visible
 max_steps = 2600                        # Number of batches to run
 stats_sample_size = 200                 # Number of images to calculate mean and sd
 batch_size = 10                         # Number of images to process in a batch
-
-# def setTrainFlag(val):
-#   train_flag = val
 
 def computeNormalizationParameters():
 
@@ -113,7 +108,7 @@ def getImageMetaRecords():
 
   return anno_file_batch_rows
 
-def getValdationImageMetaRecords():
+def getValidationImageMetaRecords():
   all_validation_visible_idx = [x for x in xrange(0, total_visible_validation_images)]
   random.shuffle(all_validation_visible_idx)
 
@@ -124,7 +119,7 @@ def getValdationImageMetaRecords():
   for x in all_validation_visible_idx:
     validation_anno_file_batch_rows.append(validation_anno_file_lines[x])  
 
-  return validation_anno_file_batch_rows[0:batch_size]
+  return validation_anno_file_batch_rows[0:batch_size]  
 
 def calculteNormalizedValidationDistance(pred, original, bbox_heights):
   total_normalized_distance = 0
@@ -146,13 +141,13 @@ org_gt_coords = tf.placeholder(dtype=tf.float32, shape=[batch_size, 2])
 
 stats_dict = computeNormalizationParameters() 
 
-res_aux = cdhd.inference(images, out_locs, org_gt_coords)
+res_aux = cdhd.inference(images,out_locs,org_gt_coords)
 
 ret_dict = cdhd.train(res_aux, global_step)
 
 init = tf.global_variables_initializer()
 
-saver = tf.train.Saver(max_to_keep=40)
+saver = tf.train.Saver(max_to_keep=0)
 
 with tf.Session() as sess:
 # with tf.Session(config=tf.ConfigProto(log_device_placement=True)) as sess:  
@@ -160,7 +155,7 @@ with tf.Session() as sess:
   sess.run(init)
 
   # Restore variables from disk.
-  # saver.restore(sess, "./ckpt/model2295.ckpt")
+  # saver.restore(sess, "./ckpt/model0.ckpt")
   # print("Model restored.")
 
   # Following two lines are for debugging
@@ -177,7 +172,7 @@ with tf.Session() as sess:
       distorted_images, meta = cdhd_input.distorted_inputs(stats_dict, batch_size, \
               anno_file_batch_rows[batch * batch_size : (batch * batch_size) + batch_size])
 
-      out_dict = sess.run(ret_dict, feed_dict =
+      out_dict = sess.run(ret_dict, feed_dict=
                             {images: distorted_images, 
                             out_locs: meta['out_locs'],
                             org_gt_coords: meta['org_gt_coords']})
@@ -187,21 +182,6 @@ with tf.Session() as sess:
       out_f = open('out_file.txt', 'a+')
       out_f.write(str(epoch) + ' ' + str(batch) + ' ' + str(out_dict['loss']) + '\n')
       out_f.close()
-
-      # for temp_i in xrange(10):
-
-      #   validation_images, validation_meta = cdhd_input.distorted_inputs(stats_dict, batch_size, getValdationImageMetaRecords())      
-
-      #   validation_dict = sess.run(ret_dict, feed_dict =
-      #                                 {images: validation_images, 
-      #                                 out_locs: validation_meta['out_locs'],
-      #                                 org_gt_coords: validation_meta['org_gt_coords']})  
-
-      #   avg_normalized_dist = calculteNormalizedValidationDistance(validation_dict['pred_coord'], 
-      #                                         validation_meta['org_gt_coords'],
-      #                                         validation_meta['bbox_heights'])
-
-      #   print('avg_normalized_dist: ', avg_normalized_dist)
 
     # Save the variables to disk.
     ckpt_file = './ckpt/model' + str(epoch) + '.ckpt'
@@ -216,8 +196,8 @@ with tf.Session() as sess:
     out_f_epoch.close()    
 
     # Validation step
-    if((epoch % 2) == 0):
-        validation_images, validation_meta = cdhd_input.distorted_inputs(stats_dict, batch_size, getValdationImageMetaRecords())      
+    if((epoch % 20) == 0):
+        validation_images, validation_meta = cdhd_input.distorted_inputs(stats_dict, batch_size, getValidationImageMetaRecords())      
         validation_dict = sess.run(ret_dict, feed_dict =
                                       {images: validation_images, 
                                       out_locs: validation_meta['out_locs'],
@@ -227,6 +207,6 @@ with tf.Session() as sess:
                                               validation_meta['bbox_heights'])
         out_f_validation = open('validation_epoch.txt', 'a+')
         out_f_validation.write(str(epoch) + ' ' + str(avg_normalized_dist) + '\n')
-        out_f_validation.close()            
+        out_f_validation.close()       
 
   writer.close() 

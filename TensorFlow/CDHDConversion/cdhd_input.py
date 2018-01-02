@@ -70,8 +70,8 @@ def distorted_inputs(stats_dict, batch_size, anno_file_batch_rows):
   aug_target_loc = aug_target_loc ./ opts.scaling_factor;
   '''
 
-  # out_locs = np.round(np.divide(out_locs, scaling_factor),4)
-  # org_gt_coords = np.round(np.divide(org_gt_coords, scaling_factor),4)
+  out_locs = np.round(np.divide(out_locs, scaling_factor),4)
+  org_gt_coords = np.round(np.divide(org_gt_coords, scaling_factor),4)
 
   meta_dict = {}
   meta_dict['margins'] = []
@@ -225,12 +225,6 @@ def concatWithPadding(images, im_sizes):
   for idx in xrange(len(images)):
     padding_tuple = (((paddings[idx])[0], (paddings[idx])[1]), ((paddings[idx])[2], (paddings[idx])[3]), (0,0))
     padded_images.append(np.pad(images[idx], padding_tuple,'edge'))
-    Image.fromarray(np.pad(images[idx], padding_tuple,'edge')).save('car_ims/img_' + str(idx) + '.jpg') #DELETE
-
-  try:
-    np.asarray(padded_images)    
-  except ValueError as e:  
-    print('value error: ', e)
 
   return np.asarray(padded_images), paddings
 
@@ -238,71 +232,4 @@ def computePaddingForImage(im_size, stride):
   padding = np.remainder(im_size[0:2],stride)
   padding = np.remainder(np.subtract(stride, padding[0:2]), stride)
   return padding
-
-def getTestImages(validation_anno_file_batch_rows):
-  images = []
-  target_locs = []
-  bbox_heights = []
-  im_sizes = []
-
-  for image_idx in xrange(len(validation_anno_file_batch_rows)):
-    meta_rec = validation_anno_file_batch_rows[image_idx].split('|')
-
-    gt_x_coord = int(float(meta_rec[0]))
-    gt_y_coord = int(float(meta_rec[1]))
-    bbox = [int(i) for i in meta_rec[8].strip()[0:len(meta_rec[8]) - 1].split(',')]    
-    bbox_height = bbox[3] - bbox[1]
-
-    image = Image.open(data_dir + meta_rec[2])
-    im = np.array(image)
-    if(len(im.shape) == 2):
-      #monochrome image, add the third channel
-      im = np.stack((image,)*3)
-      print('mono image: ', meta_rec[2])    
-
-    images.append(im)
-    im_sizes.append(np.asarray(im.shape))
-
-    # print('image name and shape:', meta_rec[2], im.shape)
-
-    target_loc = np.zeros(2)
-    target_loc[0] = gt_y_coord
-    target_loc[1] = gt_x_coord
-    target_locs.append(target_loc)
-
-    bbox_heights.append(bbox_height)
-
-  org_gt_coords = np.asarray(target_locs)
-
-  padded_images, cat_padding = concatWithPadding(np.asarray(images), np.asarray(im_sizes))
-
-  print('image shapes:')
-  for p_img in padded_images:
-    print(p_img.shape)
-
-  x = np.arange(start_offset, padded_images.shape[1], output_stride)
-  y = np.arange(start_offset, padded_images.shape[2], output_stride)
-
-  out_locs_list = []
-  for xi in xrange(x.shape[0]):
-    for yi in xrange(y.shape[0]):
-      out_locs_list.append((x[xi], y[yi]))
-
-  out_locs = np.asarray(out_locs_list)
-
-  # out_locs = np.round(np.divide(out_locs, scaling_factor),4)
-  # org_gt_coords = np.round(np.divide(org_gt_coords, scaling_factor),4)  
-
-  print('x, y out locs shape: ', x, y, out_locs.shape)
-
-  meta_dict = {}
-  meta_dict['images'] = np.asarray(padded_images)
-  meta_dict['org_gt_coords'] = org_gt_coords
-  meta_dict['bbox_heights'] = bbox_heights
-  meta_dict['out_locs'] = np.asarray(out_locs)
-
-  return meta_dict
-  
-
-
 
