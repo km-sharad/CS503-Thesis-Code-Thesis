@@ -475,7 +475,10 @@ def train(res_aux, global_step):
   var_list_2 = var_list_2 + tf.get_collection('col2row1biases')
   var_list_2 = var_list_2 + getSharedParametersList()
 
-  minimizer_col2 = a_optimizer_col_2.minimize(col_2_loss, var_list=var_list_2, global_step=global_step)
+  # minimizer_col2 = a_optimizer_col_2.minimize(col_2_loss, var_list=var_list_2, global_step=global_step)
+  grads_and_vars_col2 = a_optimizer_col_2.compute_gradients(col_2_loss, var_list=var_list_2)
+  clipped_grads_and_vars_col2 = [(tf.clip_by_value(grad, -1., 1.), var) for grad, var in grads_and_vars_col2]
+  minimizer_col2 = a_optimizer_col_2.apply_gradients(clipped_grads_and_vars_col2)
   ret_dict['minimizer_col2'] = minimizer_col2
 
   col_1_loss = tf.reduce_sum((res_aux['res_steps'][2])['x'][4])
@@ -497,7 +500,10 @@ def train(res_aux, global_step):
   var_list_1 = var_list_1 + tf.get_collection('col1row1biases')
   var_list_1 = var_list_1 + getSharedParametersList()
 
-  minimizer_col1 = a_optimizer_col_1.minimize(col_1_loss, var_list=var_list_1, global_step=global_step)
+  # minimizer_col1 = a_optimizer_col_1.minimize(col_1_loss, var_list=var_list_1, global_step=global_step)
+  grads_and_vars_col1 = a_optimizer_col_1.compute_gradients(col_1_loss, var_list=var_list_1)
+  clipped_grads_and_vars_col1 = [(tf.clip_by_value(grad, -1., 1.), var) for grad, var in grads_and_vars_col1]
+  minimizer_col1 = a_optimizer_col_1.apply_gradients(clipped_grads_and_vars_col1)  
   ret_dict['minimizer_col1'] = minimizer_col1
 
   col_0_loss = tf.reduce_sum((res_aux['res_steps'][1])['x'][4])
@@ -519,7 +525,10 @@ def train(res_aux, global_step):
   var_list_0 = var_list_0 + tf.get_collection('col0row1biases')
   var_list_0 = var_list_0 + getSharedParametersList()  
 
-  minimizer_col0 = a_optimizer_col_0.minimize(col_0_loss, var_list=var_list_0, global_step=global_step)
+  # minimizer_col0 = a_optimizer_col_0.minimize(col_0_loss, var_list=var_list_0, global_step=global_step)
+  grads_and_vars_col0 = a_optimizer_col_0.compute_gradients(col_0_loss, var_list=var_list_0)
+  clipped_grads_and_vars_col0 = [(tf.clip_by_value(grad, -1., 1.), var) for grad, var in grads_and_vars_col0]
+  minimizer_col0 = a_optimizer_col_0.apply_gradients(clipped_grads_and_vars_col0)  
   ret_dict['minimizer_col0'] = minimizer_col0
 
   # for op in tf.get_default_graph().get_operations():

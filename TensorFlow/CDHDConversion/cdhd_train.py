@@ -196,6 +196,7 @@ with tf.Session() as sess:
     out_f_epoch.close()    
 
     # Validation step
+    '''
     if((epoch % 20) == 0):
         validation_images, validation_meta = cdhd_input.distorted_inputs(stats_dict, batch_size, getValidationImageMetaRecords())      
         validation_dict = sess.run(ret_dict, feed_dict =
@@ -207,6 +208,7 @@ with tf.Session() as sess:
                                               validation_meta['bbox_heights'])
         out_f_validation = open('validation_epoch.txt', 'a+')
         out_f_validation.write(str(epoch) + ' ' + str(avg_normalized_dist) + '\n')
-        out_f_validation.close()       
+        out_f_validation.close()   
+    '''    
 
   writer.close() 

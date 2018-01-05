@@ -101,7 +101,7 @@ def getImage(meta_rec, stats_dict):
     if(len(im.shape) == 2):
       #monochrome image, add the third channel
       im = np.stack((image,)*3)
-      print('mono image: ', meta_rec[2])
+      print('monochrome image: ', meta_rec[2])
 
     im_org = im     
 
