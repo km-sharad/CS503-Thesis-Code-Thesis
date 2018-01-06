@@ -71,8 +71,8 @@ def distorted_inputs(stats_dict, batch_size, anno_file_batch_rows):
   '''
 
   #Scale only for training
-  # out_locs = np.round(np.divide(out_locs, scaling_factor),4)
-  # org_gt_coords = np.round(np.divide(org_gt_coords, scaling_factor),4)
+  out_locs = np.round(np.divide(out_locs, scaling_factor),4)
+  org_gt_coords = np.round(np.divide(org_gt_coords, scaling_factor),4)
 
   meta_dict = {}
   meta_dict['margins'] = []
@@ -226,7 +226,7 @@ def concatWithPadding(images, im_sizes):
   for idx in xrange(len(images)):
     padding_tuple = (((paddings[idx])[0], (paddings[idx])[1]), ((paddings[idx])[2], (paddings[idx])[3]), (0,0))
     padded_images.append(np.pad(images[idx], padding_tuple,'edge'))
-    Image.fromarray(np.pad(images[idx], padding_tuple,'edge')).save('car_ims/img_' + str(idx) + '.jpg') #DELETE
+    # Image.fromarray(np.pad(images[idx], padding_tuple,'edge')).save('car_ims/img_' + str(idx) + '.jpg') #DELETE
 
   return np.asarray(padded_images), paddings
 

@@ -242,7 +242,8 @@ def columnActivation(aug_x, column_num, fwd_dict):
 
   #TODO: check if it's ok to multiply current iteration's preds with prev iter weights
   #TODO: if learning does not converge, check how close this formula is to formula (4) in paper
-  loss = prev_loss + (cent_loss + offs_loss * offset_pred_weight) * prev_pred_weight;    
+  # loss = prev_loss + (cent_loss + offs_loss * offset_pred_weight) * prev_pred_weight;    
+  loss = (prev_loss * prev_pred_weight) + (cent_loss + offs_loss * offset_pred_weight);    
 
   xx = offset_gauss;
   out_x = [xx, pc + poc, indiv_preds, indiv_nw, loss]
@@ -346,7 +347,7 @@ def doForwardPass(x, out_locs, gt_loc):
   offs_loss = tf.reduce_sum(tf.multiply(offs_loss, res_step['x'][3]), axis=1)
   offs_loss = tf.reshape(offs_loss, [tf.shape(offs_loss)[0],1,1,1])
 
-  loss = tf.add(tf.add(target_loss, res_step['x'][4]),
+  loss = tf.add(tf.add(target_loss, (res_steps[2])['x'][4]),
                 tf.multiply(offs_loss, offset_pred_weight))
   
   # res_aux = {}
@@ -456,6 +457,21 @@ def train(res_aux, global_step):
   ret_dict['pred_coord'] = res_aux['pred_coord']
   # ret_dict['poc_shape'] = res_aux['res_steps'][2]['poc_shape']  #DELETE
 
+
+  total_loss = tf.reduce_sum(res_aux['loss'])
+  a_optimizer = tf.train.AdamOptimizer()
+  a_optimizer.__init__(
+    learning_rate=0.001,
+    beta1=0.9,
+    beta2=0.999,
+    epsilon=1e-08,
+    use_locking=False,
+    name='Adam_Opt')
+
+  minimizer = a_optimizer.minimize(total_loss, global_step=global_step)
+  ret_dict['minimizer'] = minimizer
+
+  '''
   col_2_loss = tf.reduce_sum(res_aux['loss'])
 
   # a_optimizer_col_2 = tf.train.AdamOptimizer()
@@ -533,6 +549,7 @@ def train(res_aux, global_step):
 
   # for op in tf.get_default_graph().get_operations():
   #   print str(op.name) 
+  '''
 
   return ret_dict
 
