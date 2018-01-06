@@ -458,16 +458,16 @@ def train(res_aux, global_step):
 
   col_2_loss = tf.reduce_sum(res_aux['loss'])
 
-  a_optimizer_col_2 = tf.train.AdamOptimizer()
-  a_optimizer_col_2.__init__(
-    learning_rate=0.001,
-    beta1=0.9,
-    beta2=0.999,
-    epsilon=1e-08,
-    use_locking=False,
-    name='Adam_2')
+  # a_optimizer_col_2 = tf.train.AdamOptimizer()
+  # a_optimizer_col_2.__init__(
+  #   learning_rate=0.001,
+  #   beta1=0.9,
+  #   beta2=0.999,
+  #   epsilon=1e-08,
+  #   use_locking=False,
+  #   name='Adam_2')
 
-  # a_optimizer_col_2 = tf.train.GradientDescentOptimizer(learning_rate=0.01) 
+  a_optimizer_col_2 = tf.train.GradientDescentOptimizer(learning_rate=0.001) 
   # a_optimizer_col_2 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003) 
 
   var_list_2 = []
@@ -483,16 +483,16 @@ def train(res_aux, global_step):
 
   col_1_loss = tf.reduce_sum((res_aux['res_steps'][2])['x'][4])
 
-  a_optimizer_col_1 = tf.train.AdamOptimizer()
-  a_optimizer_col_1.__init__(
-    learning_rate=0.001,
-    beta1=0.9,
-    beta2=0.999,
-    epsilon=1e-08,
-    use_locking=False,
-    name='Adam_1')
+  # a_optimizer_col_1 = tf.train.AdamOptimizer()
+  # a_optimizer_col_1.__init__(
+  #   learning_rate=0.001,
+  #   beta1=0.9,
+  #   beta2=0.999,
+  #   epsilon=1e-08,
+  #   use_locking=False,
+  #   name='Adam_1')
 
-  # a_optimizer_col_1 = tf.train.GradientDescentOptimizer(learning_rate=0.01)
+  a_optimizer_col_1 = tf.train.GradientDescentOptimizer(learning_rate=0.001)
   # a_optimizer_col_1 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003)  
 
   var_list_1 = []
@@ -508,16 +508,16 @@ def train(res_aux, global_step):
 
   col_0_loss = tf.reduce_sum((res_aux['res_steps'][1])['x'][4])
 
-  a_optimizer_col_0 = tf.train.AdamOptimizer()
-  a_optimizer_col_0.__init__(
-    learning_rate=0.001,
-    beta1=0.9,
-    beta2=0.999,
-    epsilon=1e-08,
-    use_locking=False,
-    name='Adam_0')
+  # a_optimizer_col_0 = tf.train.AdamOptimizer()
+  # a_optimizer_col_0.__init__(
+  #   learning_rate=0.001,
+  #   beta1=0.9,
+  #   beta2=0.999,
+  #   epsilon=1e-08,
+  #   use_locking=False,
+  #   name='Adam_0')
 
-  # a_optimizer_col_0 = tf.train.GradientDescentOptimizer(learning_rate=0.01) 
+  a_optimizer_col_0 = tf.train.GradientDescentOptimizer(learning_rate=0.001) 
   # a_optimizer_col_0 = tf.train.MomentumOptimizer(learning_rate=0.001, momentum=0.0003) 
   
   var_list_0 = []
