@@ -3,7 +3,6 @@ Contains CDHD Model
 """
 
 import tensorflow as tf
-# from cdhd_global import CDHDGlobals
 import cdhd_input
 import os
 import numpy as np
@@ -85,8 +84,8 @@ def computePredictionLossSL1(pred, target, transition_dist):
   comparator_lt = tf.less(dim_losses, transition_dist) 
 
   loss = tf.where(comparator_lt, 
-                        tf.divide(tf.square(dim_losses),2),
-                        tf.divide(tf.subtract(dim_losses, transition_dist),2))   
+    tf.divide(tf.square(dim_losses),2),
+    tf.subtract(dim_losses, tf.divide(transition_dist,2)))
 
   loss = tf.reduce_sum(loss, axis=2)
   loss = tf.reshape(loss, [tf.shape(loss)[0],tf.shape(loss)[1],1,1])
@@ -117,7 +116,7 @@ def columnActivation(aug_x, column_num, fwd_dict):
     conv = tf.nn.conv2d(x, kernel, [1, 1, 1, 1], padding='SAME')
     biases = _variable_on_cpu('col' + str(column_num) + 'row1biases', [nfc], tf.constant_initializer(0.1))
     a = tf.nn.bias_add(conv, biases)
-    a = tf.nn.relu(a, name=scope.name)
+    # a = tf.nn.relu(a, name=scope.name)
 
   if(column_num == 0):
     with tf.variable_scope('row2') as scope:
@@ -129,7 +128,7 @@ def columnActivation(aug_x, column_num, fwd_dict):
       conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
       biases = _variable_on_cpu('row2biases', [nfc], tf.constant_initializer(0.1))
       a = tf.nn.bias_add(conv, biases)
-      a = tf.nn.relu(a, name=scope.name)  
+      # a = tf.nn.relu(a, name=scope.name)  
 
     with tf.variable_scope('row3') as scope:
       kernel = _variable_with_weight_decay('row3weights',
@@ -150,7 +149,7 @@ def columnActivation(aug_x, column_num, fwd_dict):
       conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
       biases = _variable_on_cpu('row2biases', [nfc], tf.constant_initializer(0.1))
       a = tf.nn.bias_add(conv, biases)
-      a = tf.nn.relu(a, name=scope.name)
+      # a = tf.nn.relu(a, name=scope.name)
 
     with tf.variable_scope('row3', reuse=True) as scope:
       kernel = _variable_with_weight_decay('row3weights',
@@ -242,8 +241,8 @@ def columnActivation(aug_x, column_num, fwd_dict):
 
   #TODO: check if it's ok to multiply current iteration's preds with prev iter weights
   #TODO: if learning does not converge, check how close this formula is to formula (4) in paper
-  # loss = prev_loss + (cent_loss + offs_loss * offset_pred_weight) * prev_pred_weight;    
-  loss = (prev_loss * prev_pred_weight) + (cent_loss + offs_loss * offset_pred_weight);    
+  loss = prev_loss + (cent_loss + offs_loss * offset_pred_weight) * prev_pred_weight;    
+  # loss = (prev_loss * prev_pred_weight) + (cent_loss + offs_loss * offset_pred_weight);    
 
   xx = offset_gauss;
   out_x = [xx, pc + poc, indiv_preds, indiv_nw, loss]
@@ -348,7 +347,7 @@ def doForwardPass(x, out_locs, gt_loc):
   offs_loss = tf.reshape(offs_loss, [tf.shape(offs_loss)[0],1,1,1])
 
   loss = tf.add(tf.add(target_loss, (res_steps[2])['x'][4]),
-                tf.multiply(offs_loss, offset_pred_weight))
+                tf.multiply(offs_loss, offset_pred_weight), name='total_loss_op')
   
   # res_aux = {}
   # res = res_ip1;
@@ -457,11 +456,10 @@ def train(res_aux, global_step):
   ret_dict['pred_coord'] = res_aux['pred_coord']
   # ret_dict['poc_shape'] = res_aux['res_steps'][2]['poc_shape']  #DELETE
 
-
   total_loss = tf.reduce_sum(res_aux['loss'])
   a_optimizer = tf.train.AdamOptimizer()
   a_optimizer.__init__(
-    learning_rate=0.001,
+    learning_rate=0.0001,
     beta1=0.9,
     beta2=0.999,
     epsilon=1e-08,

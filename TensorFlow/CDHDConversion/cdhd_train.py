@@ -94,10 +94,9 @@ def computeNormalizationParameters():
 
   return stats_dict
 
-def getImageMetaRecords():
-  all_train_visible_idx = [x for x in xrange(0,total_visible_training_images)]
-  random.shuffle(all_train_visible_idx)
-  # batch_indexes = all_train_visible_idx[0:batch_size]
+def getImageMetaRecords(all_train_visible_idx):
+  # all_train_visible_idx = [x for x in xrange(0,total_visible_training_images)]
+  # random.shuffle(all_train_visible_idx)  
 
   anno_file_batch_rows = []
   anno_file = open('cdhd_anno_training_data.txt')
@@ -163,9 +162,12 @@ with tf.Session() as sess:
   # sess = tf_debug.LocalCLIDebugWrapperSession(sess)
   # sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
 
+  all_train_visible_idx = [x for x in xrange(0,total_visible_training_images)]
+  random.shuffle(all_train_visible_idx)  
+
   for epoch in xrange(max_steps):
     start_time = time.time()
-    anno_file_batch_rows = getImageMetaRecords() 
+    anno_file_batch_rows = getImageMetaRecords(all_train_visible_idx) 
     print('epoch: ', epoch)
 
     for batch in xrange(len(anno_file_batch_rows)/batch_size):
@@ -176,8 +178,6 @@ with tf.Session() as sess:
                             {images: distorted_images, 
                             out_locs: meta['out_locs'],
                             org_gt_coords: meta['org_gt_coords']})
-
-      # print('poc_shape: ', out_dict['poc_shape'])
 
       out_f = open('out_file.txt', 'a+')
       out_f.write(str(epoch) + ' ' + str(batch) + ' ' + str(out_dict['loss']) + '\n')
@@ -194,6 +194,11 @@ with tf.Session() as sess:
     out_f_epoch = open('out_epoch.txt', 'a+')
     out_f_epoch.write(str(epoch) + ' ' + str(out_dict['loss']) + '\n')
     out_f_epoch.close()    
+
+    out_im_epoch = open('out_image_name.txt', 'a+')
+    for img_name in anno_file_batch_rows:
+      out_im_epoch.write(str(epoch) + ' ' + str(img_name.split('|')[2]) + '\n')
+    out_im_epoch.close()        
 
     # Validation step
     '''
