@@ -116,9 +116,9 @@ def getImage(meta_rec, stats_dict):
     target_loc[0] = int(round(target_loc[0] * scale,0))    
     target_loc[1] = int(round(target_loc[1] * scale,0))   
 
-    #TODO: Bugfix - this normalizaton is not working  
-    # im = np.subtract(im, stats_dict['mean_pixel'])
-    # im = np.divide(im, stats_dict['std_pixel'])
+    #TODO: check if this normalizaton is not working  
+    im = np.subtract(im, stats_dict['mean_pixel'])
+    im = np.divide(im, stats_dict['std_pixel'])
 
     im_size = np.asarray(im.shape)
     
@@ -226,7 +226,7 @@ def concatWithPadding(images, im_sizes):
   for idx in xrange(len(images)):
     padding_tuple = (((paddings[idx])[0], (paddings[idx])[1]), ((paddings[idx])[2], (paddings[idx])[3]), (0,0))
     padded_images.append(np.pad(images[idx], padding_tuple,'edge'))
-    #Image.fromarray(np.pad(images[idx], padding_tuple,'edge')).save('car_ims/img_' + str(idx) + '.jpg') #DELETE
+    # Image.fromarray(np.pad(images[idx], padding_tuple,'edge')).save('car_ims/img_' + str(idx) + '.jpg') #DELETE
 
   return np.asarray(padded_images), paddings
 

@@ -83,7 +83,7 @@ def evaluate():
 
   with tf.Session() as sess:
 	# Load weights from disk.
-	saver.restore(sess, "./ckpt/model2279.ckpt")
+	saver.restore(sess, "./ckpt/model752.ckpt")
 	print("Model loaded.")	 
 
 	sess.run(tf.global_variables_initializer())
@@ -108,9 +108,9 @@ def evaluate():
 		                                          meta['org_gt_coords'],
 		                                          meta['bbox_heights'])
 
-      		print('epoch: ', str(epoch) + ' ' + str(batch) + ' ' + str(avg_normalized_dist))
+      		print('batch: ', str(epoch) + ' ' + str(batch) + ' ' + str(avg_normalized_dist))
 
-      		out_f_test = open('out_test_epoch.txt', 'a+')
+      		out_f_test = open('out_test_batch.txt', 'a+')
       		out_f_test.write(str(epoch) + ' ' + str(batch) + ' ' + str(avg_normalized_dist) + '\n')
       		out_f_test.close()
 

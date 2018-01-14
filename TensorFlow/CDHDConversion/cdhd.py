@@ -55,7 +55,7 @@ def _variable_with_weight_decay(name, shape, stddev, wd):
   var = _variable_on_cpu(
       name,
       shape,
-      tf.random_normal_initializer(stddev=stddev, dtype=tf.float32))
+      tf.random_normal_initializer(stddev=stddev, seed=0, dtype=tf.float32))
   # if wd is not None:
   #   weight_decay = tf.multiply(tf.nn.l2_loss(var), wd, name='weight_loss')
   #   tf.add_to_collection('losses', weight_decay)
@@ -268,6 +268,7 @@ def columnActivation(aug_x, column_num, fwd_dict):
 def doForwardPass(x, out_locs, gt_loc):
 
   res_aux = {}    #DELETE
+  res_aux['act_x'] = x    #DELETE        
 
   grid_x = np.arange(-grid_size, grid_size + 1, grid_stride)
   grid_y = np.arange(-grid_size, grid_size + 1, grid_stride)
@@ -371,6 +372,11 @@ def inference(images,out_locs,org_gt_coords):
     conv = tf.nn.conv2d(images, kernel, [1, 2, 2, 1], padding='VALID')
     biases = _variable_on_cpu('biases', [32], tf.constant_initializer(1.0))
     pre_activation = tf.nn.bias_add(conv, biases)
+
+    kernel1 = kernel #DELETE
+    img1 = images   #DELETE
+    conv1 = conv    #DELETE
+
     conv1 = tf.nn.relu(pre_activation, name=scope.name)
     
   #TODO: check if activation_summary is required
@@ -432,11 +438,21 @@ def inference(images,out_locs,org_gt_coords):
                                          wd=0.0)
     kernel = tf.multiply(kernel, 0.0250)        #line 321-325 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
     conv = tf.nn.conv2d(conv5, kernel, [1, 1, 1, 1], padding='SAME')
+    conv6 = conv    #DELETE
     biases = _variable_on_cpu('biases', [128], tf.constant_initializer(1.0))
     pre_activation = tf.nn.bias_add(conv, biases)
     conv6 = tf.nn.relu(pre_activation, name=scope.name)  
 
   res_aux = doForwardPass(conv6, out_locs, org_gt_coords)
+  res_aux['kernel1'] = kernel1 #DELETE
+  res_aux['img1'] = img1 #DELETE
+  res_aux['conv1'] = conv1 #DELETE
+  res_aux['conv2'] = conv2 #DELETE
+  res_aux['conv3'] = conv3 #DELETE
+  res_aux['conv4'] = conv4 #DELETE
+  res_aux['conv5'] = conv5 #DELETE
+  res_aux['conv6'] = conv6 #DELETE
+
   return res_aux
 
 def getSharedParametersList():
@@ -455,6 +471,14 @@ def train(res_aux, global_step):
   ret_dict['loss'] = tf.reduce_sum(res_aux['loss'])
   ret_dict['pred_coord'] = res_aux['pred_coord']
   # ret_dict['poc_shape'] = res_aux['res_steps'][2]['poc_shape']  #DELETE
+  ret_dict['kernel1'] = res_aux['kernel1']  #DELETE
+  ret_dict['img1'] = res_aux['img1']  #DELETE
+  ret_dict['conv1'] = res_aux['conv1']  #DELETE
+  ret_dict['conv2'] = res_aux['conv2']  #DELETE
+  ret_dict['conv3'] = res_aux['conv3']  #DELETE
+  ret_dict['conv4'] = res_aux['conv4']  #DELETE
+  ret_dict['conv5'] = res_aux['conv5']  #DELETE
+  ret_dict['conv6'] = res_aux['conv6']  #DELETE
 
   total_loss = tf.reduce_sum(res_aux['loss'])
   a_optimizer = tf.train.AdamOptimizer()
