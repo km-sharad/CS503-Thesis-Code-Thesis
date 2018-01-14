@@ -20,33 +20,6 @@ max_im_side = 500
 
 def computeNormalizationParameters():
 
-  '''
-  mean_pixel = np.zeros(3);
-  mean_pixel[0] = 118.1365
-  mean_pixel[1] = 114.5391
-  mean_pixel[2] = 111.4741
-
-  mean_pixel_sq = np.zeros(3);
-  mean_pixel_sq[0] = 19350.7498
-  mean_pixel_sq[1] = 18537.0203
-  mean_pixel_sq[2] = 18291.5741  
-
-  pixel_covar = np.zeros((3, 3));  
-
-  mean_pixel_113 = np.zeros((1,1,3))
-  mean_pixel_113[0][0][0] = mean_pixel[0]
-  mean_pixel_113[0][0][1] = mean_pixel[1]
-  mean_pixel_113[0][0][2] = mean_pixel[2]
-
-  mean_pixel_sq_113 = np.zeros((1,1,3))
-  mean_pixel_sq_113[0][0][0] = mean_pixel_sq[0]
-  mean_pixel_sq_113[0][0][1] = mean_pixel_sq[1]
-  mean_pixel_sq_113[0][0][2] = mean_pixel_sq[2]
-
-  std_pixel = np.sqrt(mean_pixel_sq_113 - (mean_pixel_113 ** 2))
-  stats_dict = {'mean_pixel': mean_pixel_113, 'std_pixel': std_pixel, 'pixel_covar': pixel_covar}
-  '''
-
   all_train_visible_idx = [x for x in xrange(0,total_visible_training_images)]
   random.shuffle(all_train_visible_idx)
   stats_sample_indexes = all_train_visible_idx[0:stats_sample_size]
@@ -184,12 +157,17 @@ with tf.Session() as sess:
                             org_gt_coords: meta['org_gt_coords']})
 
       # print('poc_shape: ', out_dict['poc_shape'])
-      # print('batch: ', batch)
-      # print('kernel', out_dict['kernel1'][0:3,0:3, 2,4:20])       #[7,12:15, 21:23,2]
-      # print('img11', out_dict['img1'][7,17:24, 17:24,2])       #[7,17:50, 21:50,2]
-      # print('img12', out_dict['img1'][7,17:24, 17:24,0])       #[7,17:50, 21:50,2]
-      # print('conv1: ', out_dict['conv1'][7,17:24, 17:24,30])   #[7,62:65,21:23,30]  
-      # print('conv1: ', out_dict['conv1'][7,17:24, 17:24,15])   #[7,62:65,21:23,30]  
+      print('batch: ', batch)
+      # print('act size', out_dict['act_x'].shape)
+      print('conv1', out_dict['conv1'][7,7:14, 7:14,30])       #[7,17:50, 21:50,2]
+      print('conv2', out_dict['conv2'][7,7:14, 7:14,30])       #[7,17:50, 21:50,2]      
+      print('conv3', out_dict['conv3'][7,7:14, 7:14,30])       #[7,17:50, 21:50,2]
+      print('conv4', out_dict['conv4'][7,7:14, 7:14,30])       #[7,17:50, 21:50,2]
+      print('conv5', out_dict['conv5'][7,7:14, 7:14,30])       #[7,17:50, 21:50,2]
+      print('conv6', out_dict['conv6'][7,7:14, 7:14,30])       #[7,17:50, 21:50,2]
+      # print('act_x_2', out_dict['act_x'][7,17:24, 17:24,20])       #[7,17:50, 21:50,2]
+      # print('act_x_3', out_dict['act_x'][5,17:24, 17:24,12])       #[7,17:50, 21:50,2]
+      # print('act_x_4', out_dict['act_x'][5,17:24, 17:24,20])       #[7,17:50, 21:50,2]      
 
       out_f = open('out_file.txt', 'a+')
       out_f.write(str(epoch) + ' ' + str(batch) + ' ' + str(out_dict['loss']) + '\n')

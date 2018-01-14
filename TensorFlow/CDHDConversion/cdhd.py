@@ -18,7 +18,7 @@ grid_size = 50
 grid_stride = 25
 prev_pred_weight = 0.1
 
-def _variable_on_cpu(name, shape, initializer):
+def _variable_on_cpu(name, shape, initializer, wd):
   """Helper to create a Variable stored on CPU memory.
 
   Args:
@@ -30,8 +30,17 @@ def _variable_on_cpu(name, shape, initializer):
     Variable Tensor
   """
   # with tf.device('/cpu:0'):
-  var = tf.get_variable(name, shape, initializer=initializer, dtype=tf.float32, trainable=True)
-  tf.add_to_collection(name, var)
+  if wd > 0:
+    var = tf.get_variable(name, 
+                          shape, 
+                          initializer=initializer, 
+                          dtype=tf.float32, 
+                          trainable=True,
+                          regularizer=tf.contrib.layers.l2_regularizer(tf.constant(wd, dtype=tf.float32)))
+    tf.add_to_collection(name, var)
+  else:
+    var = tf.get_variable(name, shape, initializer=initializer, dtype=tf.float32, trainable=True)
+    tf.add_to_collection(name, var)    
 
   return var
 
@@ -55,7 +64,8 @@ def _variable_with_weight_decay(name, shape, stddev, wd):
   var = _variable_on_cpu(
       name,
       shape,
-      tf.random_normal_initializer(stddev=stddev, seed=0, dtype=tf.float32))
+      tf.random_normal_initializer(stddev=stddev, seed=0, dtype=tf.float32),
+      wd)
   # if wd is not None:
   #   weight_decay = tf.multiply(tf.nn.l2_loss(var), wd, name='weight_loss')
   #   tf.add_to_collection('losses', weight_decay)
@@ -111,10 +121,10 @@ def columnActivation(aug_x, column_num, fwd_dict):
     kernel = _variable_with_weight_decay('col' + str(column_num) + 'row1weights',
                                          shape=[5, 5, nfc + 1, nfc],
                                          stddev=1,  #check if this is right
-                                         wd=0.0)
+                                         wd=0.00005)
     kernel = tf.multiply(kernel, 0.0249)      #line 327-334 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
     conv = tf.nn.conv2d(x, kernel, [1, 1, 1, 1], padding='SAME')
-    biases = _variable_on_cpu('col' + str(column_num) + 'row1biases', [nfc], tf.constant_initializer(0.1))
+    biases = _variable_on_cpu('col' + str(column_num) + 'row1biases', [nfc], tf.constant_initializer(0.1), wd=0.0)
     a = tf.nn.bias_add(conv, biases)
     # a = tf.nn.relu(a, name=scope.name)
 
@@ -123,10 +133,10 @@ def columnActivation(aug_x, column_num, fwd_dict):
       kernel = _variable_with_weight_decay('row2weights',
                                            shape=[5, 5, nfc, nfc],
                                            stddev=1,  #check if this is right
-                                           wd=0.0)
+                                           wd=0.00005)
       kernel = tf.multiply(kernel, 0.0250)      #line 327-334 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
       conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
-      biases = _variable_on_cpu('row2biases', [nfc], tf.constant_initializer(0.1))
+      biases = _variable_on_cpu('row2biases', [nfc], tf.constant_initializer(0.1), wd=0.0)
       a = tf.nn.bias_add(conv, biases)
       # a = tf.nn.relu(a, name=scope.name)  
 
@@ -134,20 +144,20 @@ def columnActivation(aug_x, column_num, fwd_dict):
       kernel = _variable_with_weight_decay('row3weights',
                                            shape=[5, 5, nfc, num_out_filters],
                                            stddev=1,  #check if this is right
-                                           wd=0.0)
+                                           wd=0.00005)
       kernel = tf.multiply(kernel, 0.0250)      #line 327-334 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
       conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
-      biases = _variable_on_cpu('row3biases', [num_out_filters], tf.constant_initializer(0.1))
+      biases = _variable_on_cpu('row3biases', [num_out_filters], tf.constant_initializer(0.1), wd=0.0)
       a = tf.nn.bias_add(conv, biases)                
   else:
     with tf.variable_scope('row2', reuse=True) as scope:
       kernel = _variable_with_weight_decay('row2weights',
                                            shape=[5, 5, nfc, nfc],
                                            stddev=1,  #check if this is right
-                                           wd=0.0)
+                                           wd=0.00005)
       kernel = tf.multiply(kernel, 0.0250)      #line 327-334 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
       conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
-      biases = _variable_on_cpu('row2biases', [nfc], tf.constant_initializer(0.1))
+      biases = _variable_on_cpu('row2biases', [nfc], tf.constant_initializer(0.1), wd=0.0)
       a = tf.nn.bias_add(conv, biases)
       # a = tf.nn.relu(a, name=scope.name)
 
@@ -155,10 +165,10 @@ def columnActivation(aug_x, column_num, fwd_dict):
       kernel = _variable_with_weight_decay('row3weights',
                                            shape=[5, 5, nfc, num_out_filters],
                                            stddev=1,  #check if this is right
-                                           wd=0.0)
+                                           wd=0.00005)
       kernel = tf.multiply(kernel, 0.0250)      #line 327-334 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
       conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
-      biases = _variable_on_cpu('row3biases', [num_out_filters], tf.constant_initializer(0.1))
+      biases = _variable_on_cpu('row3biases', [num_out_filters], tf.constant_initializer(0.1), wd=0.0)
       a = tf.nn.bias_add(conv, biases)      
 
   #e.g.: a shape: [10, 42, 32, 26], w shape: [10, 42, 32, 1]
@@ -367,16 +377,11 @@ def inference(images,out_locs,org_gt_coords):
     kernel = _variable_with_weight_decay('weights',
                                          shape=[3, 3, 3, 32],
                                          stddev=1,  #check if this is right
-                                         wd=0.0)
+                                         wd=0.00005)
     kernel = tf.multiply(kernel, 0.2722)        #line 321-325 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
     conv = tf.nn.conv2d(images, kernel, [1, 2, 2, 1], padding='VALID')
-    biases = _variable_on_cpu('biases', [32], tf.constant_initializer(1.0))
+    biases = _variable_on_cpu('biases', [32], tf.constant_initializer(1.0), wd=0.0)
     pre_activation = tf.nn.bias_add(conv, biases)
-
-    kernel1 = kernel #DELETE
-    img1 = images   #DELETE
-    conv1 = conv    #DELETE
-
     conv1 = tf.nn.relu(pre_activation, name=scope.name)
     
   #TODO: check if activation_summary is required
@@ -387,10 +392,10 @@ def inference(images,out_locs,org_gt_coords):
     kernel = _variable_with_weight_decay('weights',
                                          shape=[3, 3, 32, 64],
                                          stddev=1,
-                                         wd=0.0)
+                                         wd=0.00005)
     kernel = tf.multiply(kernel, 0.0833)        #line 321-325 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
     conv = tf.nn.conv2d(conv1, kernel, [1, 2, 2, 1], padding='VALID')
-    biases = _variable_on_cpu('biases', [64], tf.constant_initializer(1.0))
+    biases = _variable_on_cpu('biases', [64], tf.constant_initializer(1.0), wd=0.0)
     pre_activation = tf.nn.bias_add(conv, biases)
     conv2 = tf.nn.relu(pre_activation, name=scope.name)
 
@@ -399,10 +404,10 @@ def inference(images,out_locs,org_gt_coords):
     kernel = _variable_with_weight_decay('weights',
                                          shape=[3, 3, 64, 64],
                                          stddev=1,
-                                         wd=0.0)
+                                         wd=0.00005)
     kernel = tf.multiply(kernel, 0.0589)        #line 321-325 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
     conv = tf.nn.conv2d(conv2, kernel, [1, 2, 2, 1], padding='VALID')
-    biases = _variable_on_cpu('biases', [64], tf.constant_initializer(1.0))
+    biases = _variable_on_cpu('biases', [64], tf.constant_initializer(1.0), wd=0.0)
     pre_activation = tf.nn.bias_add(conv, biases)
     conv3 = tf.nn.relu(pre_activation, name=scope.name)    
 
@@ -411,10 +416,10 @@ def inference(images,out_locs,org_gt_coords):
     kernel = _variable_with_weight_decay('weights',
                                          shape=[3, 3, 64, 64],
                                          stddev=1,
-                                         wd=0.0)
+                                         wd=0.00005)
     kernel = tf.multiply(kernel, 0.0589)        #line 321-325 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
     conv = tf.nn.conv2d(conv3, kernel, [1, 1, 1, 1], padding='SAME')
-    biases = _variable_on_cpu('biases', [64], tf.constant_initializer(1.0))
+    biases = _variable_on_cpu('biases', [64], tf.constant_initializer(1.0), wd=0.0)
     pre_activation = tf.nn.bias_add(conv, biases)
     conv4 = tf.nn.relu(pre_activation, name=scope.name)        
 
@@ -423,10 +428,10 @@ def inference(images,out_locs,org_gt_coords):
     kernel = _variable_with_weight_decay('weights',
                                          shape=[3, 3, 64, 128],
                                          stddev=1,
-                                         wd=0.0)
+                                         wd=0.00005)
     kernel = tf.multiply(kernel, 0.0589)        #line 321-325 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
     conv = tf.nn.conv2d(conv4, kernel, [1, 2, 2, 1], padding='VALID')
-    biases = _variable_on_cpu('biases', [128], tf.constant_initializer(1.0))
+    biases = _variable_on_cpu('biases', [128], tf.constant_initializer(1.0), wd=0.0)
     pre_activation = tf.nn.bias_add(conv, biases)
     conv5 = tf.nn.relu(pre_activation, name=scope.name)    
 
@@ -435,17 +440,14 @@ def inference(images,out_locs,org_gt_coords):
     kernel = _variable_with_weight_decay('weights',
                                          shape=[5, 5, 128, 128],
                                          stddev=1,
-                                         wd=0.0)
+                                         wd=0.00005)
     kernel = tf.multiply(kernel, 0.0250)        #line 321-325 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
     conv = tf.nn.conv2d(conv5, kernel, [1, 1, 1, 1], padding='SAME')
-    conv6 = conv    #DELETE
-    biases = _variable_on_cpu('biases', [128], tf.constant_initializer(1.0))
+    biases = _variable_on_cpu('biases', [128], tf.constant_initializer(1.0), wd=0.0)
     pre_activation = tf.nn.bias_add(conv, biases)
     conv6 = tf.nn.relu(pre_activation, name=scope.name)  
 
   res_aux = doForwardPass(conv6, out_locs, org_gt_coords)
-  res_aux['kernel1'] = kernel1 #DELETE
-  res_aux['img1'] = img1 #DELETE
   res_aux['conv1'] = conv1 #DELETE
   res_aux['conv2'] = conv2 #DELETE
   res_aux['conv3'] = conv3 #DELETE
@@ -471,14 +473,13 @@ def train(res_aux, global_step):
   ret_dict['loss'] = tf.reduce_sum(res_aux['loss'])
   ret_dict['pred_coord'] = res_aux['pred_coord']
   # ret_dict['poc_shape'] = res_aux['res_steps'][2]['poc_shape']  #DELETE
-  ret_dict['kernel1'] = res_aux['kernel1']  #DELETE
-  ret_dict['img1'] = res_aux['img1']  #DELETE
   ret_dict['conv1'] = res_aux['conv1']  #DELETE
   ret_dict['conv2'] = res_aux['conv2']  #DELETE
   ret_dict['conv3'] = res_aux['conv3']  #DELETE
   ret_dict['conv4'] = res_aux['conv4']  #DELETE
   ret_dict['conv5'] = res_aux['conv5']  #DELETE
   ret_dict['conv6'] = res_aux['conv6']  #DELETE
+  ret_dict['act_x'] = res_aux['act_x']  #DELETE
 
   total_loss = tf.reduce_sum(res_aux['loss'])
   a_optimizer = tf.train.AdamOptimizer()
