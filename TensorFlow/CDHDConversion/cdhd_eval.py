@@ -83,7 +83,7 @@ def evaluate():
 
   with tf.Session() as sess:
 	# Load weights from disk.
-	saver.restore(sess, "./ckpt/model752.ckpt")
+	saver.restore(sess, "./ckpt/model237.ckpt")
 	print("Model loaded.")	 
 
 	sess.run(tf.global_variables_initializer())
@@ -97,8 +97,6 @@ def evaluate():
       		distorted_images, meta = cdhd_input.distorted_inputs(stats_dict, batch_size, \
               anno_file_batch_rows[batch * batch_size : (batch * batch_size) + batch_size])			
 
-      		print('rec: ', anno_file_batch_rows[batch * batch_size : (batch * batch_size) + batch_size])
-
       		output = sess.run(ret_dict, {
 		  						images: distorted_images,
 		  						out_locs: meta['out_locs'],
@@ -108,7 +106,7 @@ def evaluate():
 		                                          meta['org_gt_coords'],
 		                                          meta['bbox_heights'])
 
-      		print('batch: ', str(epoch) + ' ' + str(batch) + ' ' + str(avg_normalized_dist))
+      		print('epoch: ', str(epoch) + ' batch: ' + str(batch) + ' ' + str(avg_normalized_dist))
 
       		out_f_test = open('out_test_batch.txt', 'a+')
       		out_f_test.write(str(epoch) + ' ' + str(batch) + ' ' + str(avg_normalized_dist) + '\n')

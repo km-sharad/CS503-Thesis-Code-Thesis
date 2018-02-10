@@ -16,6 +16,7 @@ min_side = 64
 start_offset = 16
 output_stride = 16
 scaling_factor = round(500/float(3), 4)
+photometric_distortion_scale = 0.1
 
 def distorted_inputs(stats_dict, batch_size, anno_file_batch_rows):
   """Construct distorted input for CIFAR training using the Reader ops.
@@ -52,6 +53,10 @@ def distorted_inputs(stats_dict, batch_size, anno_file_batch_rows):
 
   x = np.arange(start_offset, padded_images.shape[1], output_stride)
   y = np.arange(start_offset, padded_images.shape[2], output_stride)
+
+  # Image.fromarray(padded_images[2], 'RGB').show()
+  # Image.fromarray(padded_images[5], 'RGB').show()
+  # sys.exit()                
 
   out_locs_list = []
   for xi in xrange(x.shape[0]):
@@ -107,18 +112,24 @@ def getImage(meta_rec, stats_dict):
     im_org = im     
 
     #Compute the default scaling
-    scale = round(max_im_side/float(np.amax(im.shape)),4)    
+    scale = round(max_im_side/float(np.amax(im.shape)),4) 
 
-    [im, target_loc, aug_scale] = getAugmentedImage(im, im_meta_dict)
+    # Image.fromarray(im, 'RGB').show()
+    # sys.exit()
+
+    [im, target_loc, aug_scale] = getAugmentedImage(im, im_meta_dict, stats_dict)
+
+    # Image.fromarray(im, 'RGB').show()
+    # sys.exit()        
 
     im_org_scaled = imresize(im, scale,interp='bilinear')
     im = im_org_scaled
     target_loc[0] = int(round(target_loc[0] * scale,0))    
     target_loc[1] = int(round(target_loc[1] * scale,0))   
 
-    #TODO: check if this normalizaton is not working  
-    im = np.subtract(im, stats_dict['mean_pixel'])
-    im = np.divide(im, stats_dict['std_pixel'])
+    #TODO: check if this normalizaton is working  
+    # im = np.subtract(im, stats_dict['mean_pixel'])
+    # im = np.divide(im, stats_dict['std_pixel'])
 
     im_size = np.asarray(im.shape)
     
@@ -179,7 +190,7 @@ def getImage(meta_rec, stats_dict):
 
     return [im, target_loc, info]
 
-def getAugmentedImage(im, im_meta_dict):
+def getAugmentedImage(im, im_meta_dict, stats_dict):
   (im, im_meta_dict) = lrFlipCDHDDataRecord(im, im_meta_dict)
   targets = [im_meta_dict['gt_x_coord'], im_meta_dict['gt_y_coord']]  
 
@@ -191,7 +202,12 @@ def getAugmentedImage(im, im_meta_dict):
   targets_np = np.zeros(2)
   targets_np[0] = int(round(targets[0] * scale,0))
   targets_np[1] = int(round(targets[1] * scale,0))
-  
+
+  # Eigen based distortion
+  # offset = stats_dict['pixel_eigvec'].dot(np.transpose((stats_dict['pixel_eigval'] * \
+  #                   np.random.normal(0,1,stats_dict['pixel_eigval'].shape)) * photometric_distortion_scale))
+  # im = im - np.transpose(offset)
+
   #TO-DO: random crop jitter
 
   return [im, targets_np, scale]
