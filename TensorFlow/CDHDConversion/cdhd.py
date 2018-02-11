@@ -482,3 +482,9 @@ def train(res_aux, global_step):
 
   return ret_dict
 
+def test(res_aux, global_step):
+  ret_dict = {}
+  ret_dict['loss'] = tf.reduce_sum(res_aux['loss'])
+  ret_dict['pred_coord'] = res_aux['pred_coord']
+  return ret_dict  
+

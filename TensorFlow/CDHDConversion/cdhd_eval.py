@@ -58,7 +58,6 @@ def getTestImageMetaRecords():
 def calculteNormalizedValidationDistance(pred, original, bbox_heights):
   total_normalized_distance = 0
   for i in xrange(original.shape[0]): 
-    # print(pred[i][0][0][0],pred[i][0][1][0],original[i][0], original[i][1], bbox_heights[i])
     mse = sqrt(pow((pred[i][0][0][0] - original[i][0]), 2) + pow((pred[i][0][1][0] - original[i][1]), 2))
     normalized_dist = mse/float(bbox_heights[i])    
     # print(normalized_dist)
@@ -79,6 +78,8 @@ def evaluate():
 
   ret_dict = cdhd.train(test_out_dict, global_step)
 
+  ret_dict2 = cdhd.train2(test_out_dict, global_step)
+
   saver = tf.train.Saver()
 
   with tf.Session() as sess:
@@ -97,7 +98,7 @@ def evaluate():
       		distorted_images, meta = cdhd_input.distorted_inputs(stats_dict, batch_size, \
               anno_file_batch_rows[batch * batch_size : (batch * batch_size) + batch_size])			
 
-      		output = sess.run(ret_dict, {
+      		output = sess.run(ret_dict2, {
 		  						images: distorted_images,
 		  						out_locs: meta['out_locs'],
 		              			org_gt_coords: meta['org_gt_coords']})

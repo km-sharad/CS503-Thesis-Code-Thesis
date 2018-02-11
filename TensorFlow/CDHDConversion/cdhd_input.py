@@ -9,6 +9,7 @@ from scipy.misc import imresize
 from scipy.ndimage import zoom
 import sys
 
+data_dir = '../../../../../../../../CS503-Thesis/car_dataset/'
 data_dir = '../../../../car_dataset/'
 max_im_side = 500
 init_padding = 32
