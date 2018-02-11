@@ -126,7 +126,7 @@ def columnActivation(aug_x, column_num, fwd_dict):
     conv = tf.nn.conv2d(x, kernel, [1, 1, 1, 1], padding='SAME')
     biases = _variable_on_cpu('col' + str(column_num) + 'row1biases', [nfc], tf.constant_initializer(0.1), wd=0.0)
     a = tf.nn.bias_add(conv, biases)
-    a = tf.nn.relu(a, name=scope.name)
+    # a = tf.nn.relu(a, name=scope.name)
 
   if(column_num == 0):
     with tf.variable_scope('row2') as scope:
@@ -138,7 +138,7 @@ def columnActivation(aug_x, column_num, fwd_dict):
       conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
       biases = _variable_on_cpu('row2biases', [nfc], tf.constant_initializer(0.1), wd=0.0)
       a = tf.nn.bias_add(conv, biases)
-      a = tf.nn.relu(a, name=scope.name)  
+      # a = tf.nn.relu(a, name=scope.name)  
 
     with tf.variable_scope('row3') as scope:
       kernel = _variable_with_weight_decay('row3weights',
@@ -159,7 +159,7 @@ def columnActivation(aug_x, column_num, fwd_dict):
       conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
       biases = _variable_on_cpu('row2biases', [nfc], tf.constant_initializer(0.1), wd=0.0)
       a = tf.nn.bias_add(conv, biases)
-      a = tf.nn.relu(a, name=scope.name)
+      # a = tf.nn.relu(a, name=scope.name)
 
     with tf.variable_scope('row3', reuse=True) as scope:
       kernel = _variable_with_weight_decay('row3weights',
@@ -278,7 +278,6 @@ def columnActivation(aug_x, column_num, fwd_dict):
 def doForwardPass(x, out_locs, gt_loc):
 
   res_aux = {}    #DELETE
-  res_aux['act_x'] = x    #DELETE        
 
   grid_x = np.arange(-grid_size, grid_size + 1, grid_stride)
   grid_y = np.arange(-grid_size, grid_size + 1, grid_stride)
@@ -451,12 +450,23 @@ def inference(images,out_locs,org_gt_coords):
 
   return res_aux
 
+def getSharedParametersList():
+  var_list = []
+  var_list = var_list + tf.get_collection('row2weights')
+  var_list = var_list + tf.get_collection('row2biases')  
+  var_list = var_list + tf.get_collection('row3weights')
+  var_list = var_list + tf.get_collection('row3biases')    
+  var_list = var_list + tf.get_collection('weights') 
+  var_list = var_list + tf.get_collection('biases')
+
+  return var_list
+
 def train(res_aux, global_step):
   ret_dict = {}
   ret_dict['loss'] = tf.reduce_sum(res_aux['loss'])
   ret_dict['pred_coord'] = res_aux['pred_coord']
   # ret_dict['poc_shape'] = res_aux['res_steps'][2]['poc_shape']  #DELETE
-  
+
   total_loss = tf.reduce_sum(res_aux['loss'])
   a_optimizer = tf.train.AdamOptimizer()
   a_optimizer.__init__(

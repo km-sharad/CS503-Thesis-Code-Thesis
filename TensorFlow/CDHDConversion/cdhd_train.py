@@ -3,7 +3,6 @@ import random
 import tensorflow as tf
 from PIL import Image
 from math import sqrt
-from numpy import linalg as LA
 import numpy as np
 import time
 import cdhd_input
@@ -14,12 +13,10 @@ from scipy.misc import imresize
 data_dir = '../../../../car_dataset/'
 total_visible_training_images = 1920    # Number of training images where car door handle is visible
 total_visible_validation_images = 680 # Number of validation images where car door handle is visible
-max_steps = 2600                        # Number of batches to run
+max_steps = 5000                        # Number of batches to run
 stats_sample_size = 200                 # Number of images to calculate mean and sd
 batch_size = 10                         # Number of images to process in a batch
 max_im_side = 500
-photometric_distortion_scale = 0.1
-
 
 def computeNormalizationParameters():
 
@@ -63,27 +60,14 @@ def computeNormalizationParameters():
     mean_pixel_sq = mean_pixel_sq * (float(num_pixel)/(float(num_pixel + npix))) \
                     + np.sum(np.square(im), axis=0)/(float(num_pixel + npix))
 
-    pixel_covar = pixel_covar * (float(num_pixel)/float(num_pixel + npix)) \
-                   + (np.transpose(im).dot(im))/float(num_pixel + npix)                    
-
     num_pixel = num_pixel + npix;
 
   epsilon = 0.001;
   std_pixel = np.sqrt(mean_pixel_sq - np.square(mean_pixel)) + epsilon
-  
-  mean_pixel = mean_pixel.reshape(1,3)
-  std_pixel = std_pixel.reshape(1,3)
-
-  pixel_eigval, pixel_eigvec = LA.eig(pixel_covar - (np.transpose(mean_pixel).dot(mean_pixel)))
-  pixel_eigval = np.sqrt(pixel_eigval).reshape(1,3)
-
-  # photometric distortion
-  std_pixel = std_pixel + (photometric_distortion_scale * np.sqrt(pixel_eigval))
-
-  stats_dict = {'mean_pixel': mean_pixel, 'std_pixel': std_pixel, \
-          'pixel_eigvec': pixel_eigvec, 'pixel_eigval': pixel_eigval}
+  stats_dict = {'mean_pixel': mean_pixel, 'std_pixel': std_pixel}
 
   #store values so that there's no need to compute next time    
+  
 
   return stats_dict
 
@@ -139,7 +123,7 @@ ret_dict = cdhd.train(res_aux, global_step)
 
 init = tf.global_variables_initializer()
 
-saver = tf.train.Saver(max_to_keep=0)
+saver = tf.train.Saver(max_to_keep=10)
 
 with tf.Session() as sess:
 # with tf.Session(config=tf.ConfigProto(log_device_placement=True)) as sess:  
@@ -173,7 +157,6 @@ with tf.Session() as sess:
                             org_gt_coords: meta['org_gt_coords']})
 
       # print('poc_shape: ', out_dict['poc_shape'])
-      print('batch: ', batch)
 
       out_f = open('out_file.txt', 'a+')
       out_f.write(str(epoch) + ' ' + str(batch) + ' ' + str(out_dict['loss']) + '\n')
