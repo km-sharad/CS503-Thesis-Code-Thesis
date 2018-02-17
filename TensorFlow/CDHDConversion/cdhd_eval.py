@@ -1,133 +1,163 @@
-import tensorflow as tf
-import cdhd_input
 import cdhd
 import random
+import tensorflow as tf
+from PIL import Image
 from math import sqrt
-import numpy as np 
+import numpy as np
 import time
+import cdhd_input
+from tensorflow.python import debug as tf_debug
 import sys
+from scipy.misc import imresize
 
-total_visible_testing_images = 1200     # Number of testing images where car door handle is visible
+data_dir = '../../../../../../../../CS503-Thesis/car_dataset/'
+data_dir = '../../../../car_dataset/'
+total_visible_training_images = 1920    # Number of training images where car door handle is visible
+total_visible_test_images = 1200 # Number of validation images where car door handle is visible
+stats_sample_size = 200                 # Number of images to calculate mean and sd
 batch_size = 10                         # Number of images to process in a batch
-max_steps = 200
+max_im_side = 500
 
 def computeNormalizationParameters():
 
+  all_train_visible_idx = [x for x in xrange(0,total_visible_training_images)]
+  random.shuffle(all_train_visible_idx)
+  stats_sample_indexes = all_train_visible_idx[0:stats_sample_size]
+
+  anno_file_batch_rows = []
+  anno_file = open('cdhd_anno_training_data.txt')
+  anno_file_lines = anno_file.readlines()
+
+  for x in stats_sample_indexes:
+    anno_file_batch_rows.append(anno_file_lines[x])
+ 
   mean_pixel = np.zeros(3);
-  mean_pixel[0] = 118.1365
-  mean_pixel[1] = 114.5391
-  mean_pixel[2] = 111.4741
-
-  # mean_pixel_sq = np.zeros(3);
-  
   mean_pixel_sq = np.zeros(3);
-  mean_pixel_sq[0] = 19350.7498
-  mean_pixel_sq[1] = 18537.0203
-  mean_pixel_sq[2] = 18291.5741  
-
   pixel_covar = np.zeros((3, 3));
 
-  mean_pixel_113 = np.zeros((1,1,3))
-  mean_pixel_113[0][0][0] = mean_pixel[0]
-  mean_pixel_113[0][0][1] = mean_pixel[1]
-  mean_pixel_113[0][0][2] = mean_pixel[2]
+  num_pixel = 0
+  for image_idx in xrange(stats_sample_size):
+    image_filename = anno_file_batch_rows[image_idx].split('|')[2]
+    image = Image.open(data_dir + image_filename)
 
-  mean_pixel_sq_113 = np.zeros((1,1,3))
-  mean_pixel_sq_113[0][0][0] = mean_pixel_sq[0]
-  mean_pixel_sq_113[0][0][1] = mean_pixel_sq[1]
-  mean_pixel_sq_113[0][0][2] = mean_pixel_sq[2]
+    im = np.array(image, dtype=np.uint64)
+    if(len(im.shape) == 2):
+      #monochrome image, add the third channel
+      im = np.stack((image,)*3)
+      print('monochrome image for mean calc: ', image_filename)      
 
-  std_pixel = np.sqrt(mean_pixel_sq_113 - (mean_pixel_113 ** 2))
-  stats_dict = {'mean_pixel': mean_pixel_113, 'std_pixel': std_pixel, 'pixel_covar': pixel_covar}
+    #scale
+    scale = round(max_im_side/float(np.amax(im.shape)),4)
+    im = imresize(im, scale, interp='bilinear')
+    im = im.astype(np.uint64)
+
+    #reshape
+    im = im.reshape(im.shape[0] * im.shape[1],im.shape[2])
+    npix = im.shape[0]
+
+    mean_pixel = mean_pixel * (float(num_pixel)/(float(num_pixel + npix))) \
+                    + np.sum(im, axis=0)/((float(num_pixel + npix)))
+    mean_pixel_sq = mean_pixel_sq * (float(num_pixel)/(float(num_pixel + npix))) \
+                    + np.sum(np.square(im), axis=0)/(float(num_pixel + npix))
+
+    num_pixel = num_pixel + npix;
+
+  epsilon = 0.001;
+  std_pixel = np.sqrt(mean_pixel_sq - np.square(mean_pixel)) + epsilon
+  stats_dict = {'mean_pixel': mean_pixel, 'std_pixel': std_pixel}
+
+  #store values so that there's no need to compute next time    
   
+
   return stats_dict
 
 def getTestImageMetaRecords():
-  all_testing_visible_idx = [x for x in xrange(0,total_visible_testing_images)]
-  random.shuffle(all_testing_visible_idx)
+  all_test_visible_idx = [x for x in xrange(0, total_visible_test_images)]
+  random.shuffle(all_test_visible_idx)
 
-  testing_anno_file_batch_rows = []
-  testing_anno_file = open('cdhd_anno_testing_data.txt')
-  testing_anno_file_lines = testing_anno_file.readlines()  
+  test_anno_file_batch_rows = []
+  test_anno_file = open('cdhd_anno_testing_data.txt')
+  test_anno_file_lines = test_anno_file.readlines()  
 
-  for x in all_testing_visible_idx:
-    testing_anno_file_batch_rows.append(testing_anno_file_lines[x])  
+  for x in all_test_visible_idx:
+    test_anno_file_batch_rows.append(test_anno_file_lines[x])  
 
-  return testing_anno_file_batch_rows
+  return test_anno_file_batch_rows  
 
-def calculteNormalizedValidationDistance(pred, original, bbox_heights):
+def calculteNormalizedTestDistance(pred, original, bbox_heights):
   total_normalized_distance = 0
   for i in xrange(original.shape[0]): 
+    # print(pred[i][0][0][0],pred[i][0][1][0],original[i][0], original[i][1], bbox_heights[i])    
     mse = sqrt(pow((pred[i][0][0][0] - original[i][0]), 2) + pow((pred[i][0][1][0] - original[i][1]), 2))
     normalized_dist = mse/float(bbox_heights[i])    
     # print(normalized_dist)
     total_normalized_distance = total_normalized_distance + normalized_dist
 
   # return average normalized distance for the batch of 10 images
-  return total_normalized_distance/float(original.shape[0])  
+  return total_normalized_distance/float(original.shape[0])
 
-def evaluate():
-  global_step = tf.Variable(0, trainable=False, dtype=tf.int32)
-  images = tf.placeholder(dtype=tf.float32, shape=[batch_size, None, None, 3])
-  out_locs = tf.placeholder(dtype=tf.float32, shape=[None, 2])
-  org_gt_coords = tf.placeholder(dtype=tf.float32, shape=[batch_size, 2])  
+global_step = tf.Variable(0, trainable=False, dtype=tf.int32)
+images = tf.placeholder(dtype=tf.float32, shape=[batch_size, None, None, 3])
+out_locs = tf.placeholder(dtype=tf.float32, shape=[None, 2])
+org_gt_coords = tf.placeholder(dtype=tf.float32, shape=[batch_size, 2])   
 
-  stats_dict = computeNormalizationParameters()
+stats_dict = computeNormalizationParameters() 
 
-  test_out_dict = cdhd.inference(images, out_locs, org_gt_coords)
+res_aux = cdhd.inference(images,out_locs,org_gt_coords)
 
-  ret_dict = cdhd.train(test_out_dict, global_step)
+val_dict = cdhd.test(res_aux, global_step)
 
-  ret_dict2 = cdhd.train2(test_out_dict, global_step)
+init = tf.global_variables_initializer()
 
-  saver = tf.train.Saver()
+saver = tf.train.Saver(max_to_keep=10)
 
-  with tf.Session() as sess:
-	# Load weights from disk.
-	saver.restore(sess, "./ckpt/model237.ckpt")
-	print("Model loaded.")	 
+with tf.Session() as sess:
+  writer = tf.summary.FileWriter('./graphs', sess.graph)
+  sess.run(init)
 
-	sess.run(tf.global_variables_initializer())
+  # Restore variables from disk.
+  saver.restore(sess, "./ckpt/model4845.ckpt")
+  print("Model restored.")
 
-	for epoch in xrange(max_steps):
-	    start_time = time.time()
-	    anno_file_batch_rows = getTestImageMetaRecords() 
-	    print('epoch: ', epoch)	    
+  # Following two lines are for debugging
+  # Use <code> python cdhd_train.py --debug </code> command to debug
+  # sess = tf_debug.LocalCLIDebugWrapperSession(sess)
+  # sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
 
-	    for batch in xrange(len(anno_file_batch_rows)/batch_size):
-      		distorted_images, meta = cdhd_input.distorted_inputs(stats_dict, batch_size, \
-              anno_file_batch_rows[batch * batch_size : (batch * batch_size) + batch_size])			
+  all_train_visible_idx = [x for x in xrange(0,total_visible_training_images)]
+  random.shuffle(all_train_visible_idx)  
 
-      		output = sess.run(ret_dict2, {
-		  						images: distorted_images,
-		  						out_locs: meta['out_locs'],
-		              			org_gt_coords: meta['org_gt_coords']})
+  for norm_dist in [0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1]:
+    print('norm_dist: ', norm_dist)
+    total_batch = 0
+    batch_le_norm_dist = 0
 
-      		avg_normalized_dist = calculteNormalizedValidationDistance(output['pred_coord'], 
-		                                          meta['org_gt_coords'],
-		                                          meta['bbox_heights'])
+    anno_file_batch_rows = getTestImageMetaRecords()
 
-      		print('epoch: ', str(epoch) + ' batch: ' + str(batch) + ' ' + str(avg_normalized_dist))
+    # for batch in xrange(5): 
+    for batch in xrange(len(anno_file_batch_rows)/batch_size):
+      test_images, test_meta = cdhd_input.distorted_inputs(stats_dict, batch_size, \
+              anno_file_batch_rows[batch * batch_size : (batch * batch_size) + batch_size])      
 
-      		out_f_test = open('out_test_batch.txt', 'a+')
-      		out_f_test.write(str(epoch) + ' ' + str(batch) + ' ' + str(avg_normalized_dist) + '\n')
-      		out_f_test.close()
+      # test_images, test_meta = cdhd_input.distorted_inputs(stats_dict, batch_size, getTestImageMetaRecords())
 
-      		np.set_printoptions(suppress=True)
-      		print('actual coord: ', meta['org_gt_coords'])
-      		print('pred coord: ', output['pred_coord'])
-      		sys.exit()
+      test_dict = sess.run(val_dict, feed_dict =
+                                    {images: test_images, 
+                                    out_locs: test_meta['out_locs'],
+                                    org_gt_coords: test_meta['org_gt_coords']})  
+      avg_normalized_dist = calculteNormalizedTestDistance(test_dict['pred_coord'], 
+                                            test_meta['org_gt_coords'],
+                                            test_meta['bbox_heights'])
 
-    	duration = time.time() - start_time
-    	print('time taken for epoch ' + str(epoch) + ': ' + str(duration))	  	
+      total_batch = total_batch + 1
+      if(round(avg_normalized_dist, 2) <= norm_dist):
+        batch_le_norm_dist = batch_le_norm_dist + 1
 
-def main(argv=None):  
-  # start_time = time.time()
-  # anno_file_batch_rows = getImageMetaRecords() 
+      print(round(avg_normalized_dist, 2))
 
-  # for batch in xrange(len(anno_file_batch_rows)/batch_size):	
-  evaluate()
-
-
-if __name__ == '__main__':
-  tf.app.run()
+    print(norm_dist, float(batch_le_norm_dist)/float(total_batch))
+    out_f = open('out_test_file.txt', 'a+')
+    out_f.write(str(norm_dist) + ' ' + str(float(batch_le_norm_dist)/float(total_batch)))
+    out_f.close()    
+    
+  writer.close() 

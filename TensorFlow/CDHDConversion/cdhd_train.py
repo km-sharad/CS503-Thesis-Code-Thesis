@@ -133,8 +133,8 @@ with tf.Session() as sess:
   sess.run(init)
 
   # Restore variables from disk.
-  # saver.restore(sess, "./ckpt/model0.ckpt")
-  # print("Model restored.")
+  saver.restore(sess, "./ckpt/model4845.ckpt")
+  print("Model restored.")
 
   # Following two lines are for debugging
   # Use <code> python cdhd_train.py --debug </code> command to debug
