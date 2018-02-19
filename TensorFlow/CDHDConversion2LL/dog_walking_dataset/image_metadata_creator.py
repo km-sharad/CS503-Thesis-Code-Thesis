@@ -45,7 +45,7 @@ def crop_prototypical_image(labl_filename):
 
 	leash_bb_idx = labl_tupl_lst.index('leash')
 	leash_bb_coords = tuple(map(int, coord_tupl_lst[leash_bb_idx]))
-	leash_cent_coords = (leash_bb_coords[0], leash_bb_coords[0] + leash_bb_coords[2], leash_bb_coords[1], leash_bb_coords[1] + leash_bb_coords[3])	
+	leash_cent_coords = (leash_bb_coords[0], leash_bb_coords[1], leash_bb_coords[0] + leash_bb_coords[2], leash_bb_coords[1] + leash_bb_coords[3])
 
 	image_name = "DogWalkingLittleLandmarks/prototypical/" + labl_filename[:labl_filename.index(".")] + ".jpg"
 

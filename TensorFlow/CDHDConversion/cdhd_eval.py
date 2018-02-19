@@ -134,12 +134,12 @@ with tf.Session() as sess:
 
     anno_file_batch_rows = getTestImageMetaRecords()
 
-    # for batch in xrange(5): 
-    for batch in xrange(len(anno_file_batch_rows)/batch_size):
-      test_images, test_meta = cdhd_input.distorted_inputs(stats_dict, batch_size, \
-              anno_file_batch_rows[batch * batch_size : (batch * batch_size) + batch_size])      
+    for batch in xrange(5): 
+    # for batch in xrange(len(anno_file_batch_rows)/batch_size):
+    #   test_images, test_meta = cdhd_input.distorted_inputs(stats_dict, batch_size, \
+    #           anno_file_batch_rows[batch * batch_size : (batch * batch_size) + batch_size])      
 
-      # test_images, test_meta = cdhd_input.distorted_inputs(stats_dict, batch_size, getTestImageMetaRecords())
+      test_images, test_meta = cdhd_input.distorted_inputs(stats_dict, batch_size, getTestImageMetaRecords())
 
       test_dict = sess.run(val_dict, feed_dict =
                                     {images: test_images, 
