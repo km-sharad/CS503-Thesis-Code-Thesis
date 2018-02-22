@@ -315,9 +315,6 @@ def doForwardPass(x, out_locs, gt_loc_ll0, gt_loc_ll1):
 
   aug_x = [x, None, None, None, 0, None, None, None, 0]
 
-  # all_preds = None
-  # all_cents = None
-
   res_step = None
   for i in xrange(steps):
     res_step = columnActivation(aug_x, i, out_locs)
@@ -335,12 +332,14 @@ def doForwardPass(x, out_locs, gt_loc_ll0, gt_loc_ll1):
     #TODO: check shape
     # checked shape on 2/18/18, looks good example shapes for xx: (10, 38, 39, 2) and (10, 31, 40, 2)
     xx_concat = tf.concat(3, [out_x_ll0[0], out_x_ll1[0]])
+    # xx_concat = tf.concat([out_x_ll0[0], out_x_ll1[0]],3)
 
     res_aux['shape-2'] = xx_concat  #DELETE
 
     #combining activation of sixth convolution with output activations of previous layer
     #TODO: check if required for last column
     aug_x[0] = tf.concat(3, [xx_concat, x_sans_xa], name='concat_x_and_a_sans_xa')
+    # aug_x[0] = tf.concat([xx_concat, x_sans_xa], 3, name='concat_x_and_a_sans_xa')
 
     aug_x[1] = out_x_ll0[1]     #pc + poc
     aug_x[2] = out_x_ll0[2]     #indiv_preds
@@ -351,21 +350,14 @@ def doForwardPass(x, out_locs, gt_loc_ll0, gt_loc_ll1):
     aug_x[7] = out_x_ll1[3]     #indiv_nw
     aug_x[8] = out_x_ll1[4]     #loss
 
-    # if(i == 0):
-    #   all_preds = aug_x[1]
-    #   all_cents = res_step['pc']
-    # else:  
-    #   all_preds = tf.concat(1,[all_preds, tf.cast(aug_x[1], tf.float32)])
-    #   all_cents = tf.concat(1,[all_cents, tf.cast(res_step['pc'], tf.float32)])
-
-  # gt_loc_ll0 = gt_loc[0]
-  # gt_loc_ll1 = gt_loc[1]
-
   gt_loc_ll0 = tf.cast(tf.convert_to_tensor(gt_loc_ll0), tf.float32)
   gt_loc_ll0 = tf.reshape(gt_loc_ll0, [tf.shape(gt_loc_ll0)[0],1, tf.shape(gt_loc_ll0)[1],1])
 
   gt_loc_ll1 = tf.cast(tf.convert_to_tensor(gt_loc_ll1), tf.float32)
   gt_loc_ll1 = tf.reshape(gt_loc_ll1, [tf.shape(gt_loc_ll1)[0],1, tf.shape(gt_loc_ll1)[1],1])  
+
+  res_aux['pred_coord_0'] = (res_step[0])['x'][1] 
+  res_aux['pred_coord_1'] = (res_step[1])['x'][1] 
 
   #Compute the loss.
   target_loss_ll0, target_residue_ll0 = computePredictionLossSL1((res_step[0])['x'][1], gt_loc_ll0, transition_dist)
@@ -476,17 +468,6 @@ def inference(images,out_locs,org_gt_coords_ll0, org_gt_coords_ll1):
   res_aux = doForwardPass(conv6, out_locs, org_gt_coords_ll0, org_gt_coords_ll1)
   return res_aux
 
-def getSharedParametersList():
-  var_list = []
-  var_list = var_list + tf.get_collection('row2weights')
-  var_list = var_list + tf.get_collection('row2biases')  
-  var_list = var_list + tf.get_collection('row3weights')
-  var_list = var_list + tf.get_collection('row3biases')    
-  var_list = var_list + tf.get_collection('weights') 
-  var_list = var_list + tf.get_collection('biases')
-
-  return var_list
-
 def train(res_aux, global_step):
   ret_dict = {}
   ret_dict['loss'] = tf.reduce_sum(res_aux['loss'])
@@ -507,4 +488,11 @@ def train(res_aux, global_step):
   ret_dict['minimizer'] = minimizer
 
   return ret_dict  
+
+def test(res_aux, global_step):
+  ret_dict = {}
+  ret_dict['loss'] = tf.reduce_sum(res_aux['loss'])
+  ret_dict['pred_coord_0'] = res_aux['pred_coord_0']
+  ret_dict['pred_coord_1'] = res_aux['pred_coord_1']
+  return ret_dict    
 

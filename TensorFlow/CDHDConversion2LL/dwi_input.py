@@ -80,11 +80,11 @@ def distorted_inputs(stats_dict, batch_size, anno_file_batch_rows):
   aug_target_loc = aug_target_loc ./ opts.scaling_factor;
   '''
 
-  out_locs = np.round(np.divide(out_locs, scaling_factor),4)
-  org_gt_coords_ll0 = np.round(np.divide(org_gt_coords, scaling_factor),4)
-
+  #Scale only for training
+  # out_locs = np.round(np.divide(out_locs, scaling_factor),4)
+  # org_gt_coords = np.round(np.divide(org_gt_coords, scaling_factor),4)
   #for second little landmarks 
-  org_gt_coords_ll1 = np.round(np.divide(org_gt_coords2, scaling_factor),4)
+  # org_gt_coords2 = np.round(np.divide(org_gt_coords2, scaling_factor),4)
 
   meta_dict = {}
   meta_dict['margins'] = []
@@ -93,8 +93,8 @@ def distorted_inputs(stats_dict, batch_size, anno_file_batch_rows):
   meta_dict['out_locs_height'] = y.shape[0]
   meta_dict['scale'] = final_scale
   meta_dict['gt_coords'] = gt_coords
-  meta_dict['org_gt_coords_ll0'] = org_gt_coords_ll0
-  meta_dict['org_gt_coords_ll1'] = org_gt_coords_ll1
+  meta_dict['org_gt_coords_ll0'] = org_gt_coords
+  meta_dict['org_gt_coords_ll1'] = org_gt_coords2
   meta_dict['im_org'] = im_org;
   meta_dict['bbox'] = bbox;
 

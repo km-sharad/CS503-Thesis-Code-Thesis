@@ -1,24 +1,23 @@
 import dwi
-import dwi_input
 import random
 import tensorflow as tf
 from PIL import Image
 from math import sqrt
 import numpy as np
 import time
-from scipy.misc import imresize
+import dwi_input
 from tensorflow.python import debug as tf_debug
+import sys
+from scipy.misc import imresize
 
 data_dir = 'dog_walking_dataset/'
-total_visible_training_images = 250     # Number of training images 
-total_visible_validation_images = 60    # Number of validation images 
-max_steps = 5000                        # Number of batches to run
-stats_sample_size = 100                 # Number of images to calculate mean and sd
-batch_size = 10                         # Number of images to process in a batch
+total_visible_training_images = 250    # Number of training images 
+total_visible_test_images = 70         # Number of validation images 
+stats_sample_size = 100                # Number of images to calculate mean and sd
+batch_size = 10                        # Number of images to process in a batch
 max_im_side = 500
 
 def computeNormalizationParameters():
-
   all_train_visible_idx = [x for x in xrange(0,total_visible_training_images)]
   random.shuffle(all_train_visible_idx)
   stats_sample_indexes = all_train_visible_idx[0:stats_sample_size]
@@ -67,38 +66,21 @@ def computeNormalizationParameters():
 
   return stats_dict
 
-def getValidationImageMetaRecords():
-  all_val_visible_idx = [x for x in xrange(0, total_visible_validation_images)]
-  random.shuffle(all_val_visible_idx)
+def getTestImageMetaRecords():
+  all_test_visible_idx = [x for x in xrange(0, total_visible_test_images)]
+  random.shuffle(all_test_visible_idx)
 
-  val_anno_file_batch_rows = []
-  val_anno_file = open('dwi_anno_val_data.txt')
-  val_anno_file_lines = val_anno_file.readlines()  
+  test_anno_file_batch_rows = []
+  test_anno_file = open('dwi_anno_testing_data.txt')
+  test_anno_file_lines = test_anno_file.readlines()  
 
-  for x in all_val_visible_idx:
-    val_anno_file_batch_rows.append(val_anno_file_lines[x])  
+  for x in all_test_visible_idx:
+    test_anno_file_batch_rows.append(test_anno_file_lines[x])  
 
-  return val_anno_file_batch_rows[0:batch_size]    
-
-def getImageMetaRecords():
-  all_train_visible_idx = [x for x in xrange(0,total_visible_training_images)]
-  random.shuffle(all_train_visible_idx)
-  # batch_indexes = all_train_visible_idx[0:batch_size]
-
-  anno_file_batch_rows = []
-  anno_file = open('dwi_anno_training_data.txt')
-  anno_file_lines = anno_file.readlines()
-
-  for x in all_train_visible_idx:
-    anno_file_batch_rows.append(anno_file_lines[x])
-
-  return anno_file_batch_rows
+  return test_anno_file_batch_rows  
 
 def calculateIOU(pred_0, pred_1, original_0, original_1, bbox):
-  print('original_0: ', original_0)
-  print('original_1: ', original_1)
   pred_0 = pred_0.reshape(batch_size,2)
-  print('pred_0: ', pred_0)
   #following is necessary since NHWC format of tf has height followed by width
   #it's therefore necessary to flip it since in annotation, the first coordinates is x followed by y
   #Also, the first coordinate in the bbox is x-coordinate of the top left corner of bounding box 
@@ -107,7 +89,6 @@ def calculateIOU(pred_0, pred_1, original_0, original_1, bbox):
   pred_0 = np.flip(pred_0,1)      
 
   pred_1 = pred_1.reshape(batch_size,2)
-  print('pred_1: ', pred_1)
   pred_1 = np.flip(pred_1, 1)
 
   #x0, y0 = top left coordinates, x1, y1 = bottom right coordinate
@@ -116,6 +97,8 @@ def calculateIOU(pred_0, pred_1, original_0, original_1, bbox):
 
   iou_threshold = 0.5
   cases_above_iou_threshold = 0
+
+  # print('bbox: ', bbox)
 
   for i in xrange(pred_0.shape[0]): 
     pred_0_x = int((pred_0[i])[0])
@@ -152,7 +135,6 @@ def calculateIOU(pred_0, pred_1, original_0, original_1, bbox):
       print('pred_0_x: ', pred_0_x, pred_1_x)
       continue
 
-    # print('pred: ', pred_coords['x0'], pred_coords['y0'], pred_coords['x1'], pred_coords['y1'])
     assert pred_coords['x0'] < pred_coords['x1']
     assert pred_coords['y0'] < pred_coords['y1']
 
@@ -180,16 +162,16 @@ def calculateIOU(pred_0, pred_1, original_0, original_1, bbox):
     actual_area = (actual_coords['x1'] - actual_coords['x0']) * (actual_coords['y1'] - actual_coords['y0'])    
 
     iou = intersection_area/float(pred_area + actual_area - intersection_area)
-    out_f_iou = open('out_val_iou.txt', 'a+')
+    out_f_iou = open('out_test_iou.txt', 'a+')
     out_f_iou.write('iou: ' + str(iou) + '\n')
-    out_f_iou.close()            
+    out_f_iou.close()                
     assert (0.0 <= iou <= 1.0)
 
     if(iou >= iou_threshold):
       cases_above_iou_threshold = cases_above_iou_threshold + 1
 
   batch_accuracy = cases_above_iou_threshold/float(pred_0.shape[0])
-  return batch_accuracy 
+  return batch_accuracy
 
 global_step = tf.Variable(0, trainable=False, dtype=tf.int32)
 images = tf.placeholder(dtype=tf.float32, shape=[batch_size, None, None, 3])
@@ -201,9 +183,7 @@ stats_dict = computeNormalizationParameters()
 
 res_aux = dwi.inference(images, out_locs, org_gt_coords_ll0, org_gt_coords_ll1)
 
-ret_dict = dwi.train(res_aux, global_step)
-
-val_dict = dwi.test(res_aux, global_step)
+ret_dict = dwi.test(res_aux, global_step)
 
 init = tf.global_variables_initializer()
 
@@ -214,63 +194,30 @@ with tf.Session() as sess:
   sess.run(init)
 
   # Restore variables from disk.
-  # saver.restore(sess, "./ckpt/model0.ckpt")
-  # print("Model restored.")
+  saver.restore(sess, "./ckpt/model2.ckpt")
+  print("Model restored.")
 
-  # Following two lines are for debugging
-  # Use <code> python cdhd_train.py --debug </code> command to debug
-  # sess = tf_debug.LocalCLIDebugWrapperSession(sess)
-  # sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
+  anno_file_batch_rows = getTestImageMetaRecords()
 
-  for epoch in xrange(max_steps):
-    start_time = time.time()
-    anno_file_batch_rows = getImageMetaRecords() 
-    print('epoch: ', epoch)
+  # for batch in xrange(5): 
+  for batch in xrange(len(anno_file_batch_rows)/batch_size):
+    test_images, test_meta = dwi_input.distorted_inputs(stats_dict, batch_size, \
+            anno_file_batch_rows[batch * batch_size : (batch * batch_size) + batch_size])      
 
-    for batch in xrange(len(anno_file_batch_rows)/batch_size):
-      distorted_images, meta = dwi_input.distorted_inputs(stats_dict, batch_size, \
-              anno_file_batch_rows[batch * batch_size : (batch * batch_size) + batch_size])
+    test_dict = sess.run(ret_dict, feed_dict=
+                      {images: test_images, 
+                      out_locs: test_meta['out_locs'],
+                      org_gt_coords_ll0: test_meta['org_gt_coords_ll0'],
+                      org_gt_coords_ll1: test_meta['org_gt_coords_ll1']})
 
-      out_dict = sess.run(ret_dict, feed_dict=
-                            {images: distorted_images, 
-                            out_locs: meta['out_locs'],
-                            org_gt_coords_ll0: meta['org_gt_coords_ll0'],
-                            org_gt_coords_ll1: meta['org_gt_coords_ll1']})
+    batch_accuracy = calculateIOU(test_dict['pred_coord_0'], 
+                  test_dict['pred_coord_1'],
+                  test_meta['org_gt_coords_ll0'],
+                  test_meta['org_gt_coords_ll1'],
+                  test_meta['bbox'])
 
-      # print('global_step: %s' % tf.train.global_step(sess, global_step))
-      # print('poc_shape: ', out_dict['poc_shape'])
+    out_f = open('out_test_file.txt', 'a+')
+    out_f.write(str(batch) + ' ' + str(batch_accuracy))
+    out_f.close()        
+    print('batch: ', batch, batch_accuracy)
 
-      out_f = open('out_file.txt', 'a+')
-      out_f.write(str(epoch) + ' ' + str(batch) + ' ' + str(out_dict['loss']) + '\n')
-      out_f.close()
-
-    # Save the variables to disk.
-    ckpt_file = './ckpt/model' + str(epoch) + '.ckpt'
-    save_path = saver.save(sess, ckpt_file)
-    print("Model saved in file: %s" % save_path)
-
-    out_f_epoch = open('out_epoch.txt', 'a+')
-    out_f_epoch.write(str(epoch) + ' ' + str(out_dict['loss']) + '\n')
-    out_f_epoch.close()        
-
-    # Validation step
-    if((epoch % 2) == 0):
-      validation_images, validation_meta = dwi_input.distorted_inputs(stats_dict, batch_size, getValidationImageMetaRecords())
-
-      validation_dict = sess.run(val_dict, feed_dict=
-                        {images: validation_images, 
-                        out_locs: validation_meta['out_locs'],
-                        org_gt_coords_ll0: validation_meta['org_gt_coords_ll0'],
-                        org_gt_coords_ll1: validation_meta['org_gt_coords_ll1']})      
-
-      batch_accuracy = calculateIOU(validation_dict['pred_coord_0'], 
-                    validation_dict['pred_coord_1'],
-                    validation_meta['org_gt_coords_ll0'],
-                    validation_meta['org_gt_coords_ll1'],
-                    validation_meta['bbox'])
-
-      out_f_validation = open('validation_epoch.txt', 'a+')
-      out_f_validation.write(str(epoch) + ' ' + str(batch_accuracy) + '\n')
-      out_f_validation.close()             
-
-  writer.close() 
