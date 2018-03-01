@@ -80,7 +80,10 @@ def getTestImageMetaRecords():
   return test_anno_file_batch_rows  
 
 def calculateIOU(pred_0, pred_1, original_0, original_1, bbox):
+  print('original_0: ', original_0)
+  print('original_1: ', original_1)
   pred_0 = pred_0.reshape(batch_size,2)
+  print('pred_0: ', pred_0)  
   #following is necessary since NHWC format of tf has height followed by width
   #it's therefore necessary to flip it since in annotation, the first coordinates is x followed by y
   #Also, the first coordinate in the bbox is x-coordinate of the top left corner of bounding box 
@@ -89,6 +92,7 @@ def calculateIOU(pred_0, pred_1, original_0, original_1, bbox):
   pred_0 = np.flip(pred_0,1)      
 
   pred_1 = pred_1.reshape(batch_size,2)
+  print('pred_1: ', pred_1)
   pred_1 = np.flip(pred_1, 1)
 
   #x0, y0 = top left coordinates, x1, y1 = bottom right coordinate
@@ -194,7 +198,7 @@ with tf.Session() as sess:
   sess.run(init)
 
   # Restore variables from disk.
-  saver.restore(sess, "./ckpt/model2.ckpt")
+  saver.restore(sess, "./ckpt/model2510.ckpt")
   print("Model restored.")
 
   anno_file_batch_rows = getTestImageMetaRecords()
