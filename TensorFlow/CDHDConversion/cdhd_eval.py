@@ -10,8 +10,8 @@ from tensorflow.python import debug as tf_debug
 import sys
 from scipy.misc import imresize
 
-data_dir = '../../../../../../../../CS503-Thesis/car_dataset/'
-data_dir = '../../../../car_dataset/'
+data_dir = '../../../../../car_dataset/'
+#data_dir = '../../../../car_dataset/'
 total_visible_training_images = 1920    # Number of training images where car door handle is visible
 total_visible_test_images = 1200 # Number of validation images where car door handle is visible
 stats_sample_size = 200                 # Number of images to calculate mean and sd
@@ -116,7 +116,7 @@ with tf.Session() as sess:
   sess.run(init)
 
   # Restore variables from disk.
-  saver.restore(sess, "./ckpt/model4845.ckpt")
+  saver.restore(sess, "./ckpt/model1343.ckpt")
   print("Model restored.")
 
   # Following two lines are for debugging
@@ -134,13 +134,11 @@ with tf.Session() as sess:
 
     anno_file_batch_rows = getTestImageMetaRecords()
 
-    for batch in xrange(5): 
-    # for batch in xrange(len(anno_file_batch_rows)/batch_size):
-    #   test_images, test_meta = cdhd_input.distorted_inputs(stats_dict, batch_size, \
-    #           anno_file_batch_rows[batch * batch_size : (batch * batch_size) + batch_size])      
+    for batch in xrange(len(anno_file_batch_rows)/batch_size):
+      test_images, test_meta = cdhd_input.distorted_inputs(stats_dict, batch_size, \
+              anno_file_batch_rows[batch * batch_size : (batch * batch_size) + batch_size])      
 
-      test_images, test_meta = cdhd_input.distorted_inputs(stats_dict, batch_size, getTestImageMetaRecords())
-
+      # test_images, test_meta = cdhd_input.distorted_inputs(stats_dict, batch_size, getTestImageMetaRecords())
       test_dict = sess.run(val_dict, feed_dict =
                                     {images: test_images, 
                                     out_locs: test_meta['out_locs'],
@@ -153,11 +151,9 @@ with tf.Session() as sess:
       if(round(avg_normalized_dist, 2) <= norm_dist):
         batch_le_norm_dist = batch_le_norm_dist + 1
 
-      print(round(avg_normalized_dist, 2))
-
     print(norm_dist, float(batch_le_norm_dist)/float(total_batch))
     out_f = open('out_test_file.txt', 'a+')
-    out_f.write(str(norm_dist) + ' ' + str(float(batch_le_norm_dist)/float(total_batch)))
+    out_f.write(str(norm_dist) + ' ' + str(float(batch_le_norm_dist)/float(total_batch)) + '\n')
     out_f.close()    
     
   writer.close() 

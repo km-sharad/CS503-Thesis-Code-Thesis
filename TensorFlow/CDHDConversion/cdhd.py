@@ -470,7 +470,7 @@ def train(res_aux, global_step):
   total_loss = tf.reduce_sum(res_aux['loss'])
   a_optimizer = tf.train.AdamOptimizer()
   a_optimizer.__init__(
-    learning_rate=0.0001,
+    learning_rate=0.001,
     beta1=0.9,
     beta2=0.999,
     epsilon=1e-08,

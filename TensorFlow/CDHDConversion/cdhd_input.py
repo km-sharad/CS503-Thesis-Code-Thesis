@@ -9,7 +9,7 @@ from scipy.misc import imresize
 from scipy.ndimage import zoom
 import sys
 
-data_dir = '../../../../../../../../CS503-Thesis/car_dataset/'
+# data_dir = '../../../../../car_dataset/'
 data_dir = '../../../../car_dataset/'
 max_im_side = 500
 init_padding = 32
@@ -85,6 +85,8 @@ def distorted_inputs(stats_dict, batch_size, anno_file_batch_rows):
   meta_dict['org_gt_coords'] = org_gt_coords
   meta_dict['im_org'] = im_org;
   meta_dict['bbox_heights'] = bbox_heights;
+  #meta_dict['im_org_scaled'] = ?;
+  #meta_dict['torso_height'] = ?;
 
   return padded_images, meta_dict
 
@@ -166,6 +168,8 @@ def getImage(meta_rec, stats_dict):
     info['im_size'] = im_size
     info['bbox_height'] = im_meta_dict['bbox'][3] - im_meta_dict['bbox'][1]
     info['final_scale'] = final_scale
+    #info.torso_height = ?
+    #info.im_org_scaled = ?
     info['padding'] = padding
 
     #IMPORTANT NOTE: Since in tf and np, the first dimension is height and second width,

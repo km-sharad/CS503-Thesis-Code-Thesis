@@ -10,7 +10,7 @@ from tensorflow.python import debug as tf_debug
 import sys
 from scipy.misc import imresize
 
-data_dir = '../../../../../../../../CS503-Thesis/car_dataset/'
+# data_dir = '../../../../../car_dataset/'
 data_dir = '../../../../car_dataset/'
 total_visible_training_images = 1920    # Number of training images where car door handle is visible
 total_visible_validation_images = 680 # Number of validation images where car door handle is visible
@@ -74,7 +74,7 @@ def computeNormalizationParameters():
 
 def getImageMetaRecords(all_train_visible_idx):
   # all_train_visible_idx = [x for x in xrange(0,total_visible_training_images)]
-  # random.shuffle(all_train_visible_idx)  
+  random.shuffle(all_train_visible_idx)  
 
   anno_file_batch_rows = []
   anno_file = open('cdhd_anno_training_data.txt')
@@ -101,7 +101,7 @@ def getValidationImageMetaRecords():
 def calculteNormalizedValidationDistance(pred, original, bbox_heights):
   total_normalized_distance = 0
   for i in xrange(original.shape[0]): 
-    # print(pred[i][0][0][0],pred[i][0][1][0],original[i][0], original[i][1], bbox_heights[i])    
+    print(pred[i][0][0][0],pred[i][0][1][0],original[i][0], original[i][1], bbox_heights[i])
     mse = sqrt(pow((pred[i][0][0][0] - original[i][0]), 2) + pow((pred[i][0][1][0] - original[i][1]), 2))
     normalized_dist = mse/float(bbox_heights[i])    
     # print(normalized_dist)
@@ -125,7 +125,7 @@ val_dict = cdhd.test(res_aux, global_step)
 
 init = tf.global_variables_initializer()
 
-saver = tf.train.Saver(max_to_keep=10)
+saver = tf.train.Saver(max_to_keep=20)
 
 with tf.Session() as sess:
 # with tf.Session(config=tf.ConfigProto(log_device_placement=True)) as sess:  
@@ -142,7 +142,7 @@ with tf.Session() as sess:
   # sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
 
   all_train_visible_idx = [x for x in xrange(0,total_visible_training_images)]
-  random.shuffle(all_train_visible_idx)  
+  #random.shuffle(all_train_visible_idx)  
 
   for epoch in xrange(max_steps):
     start_time = time.time()
