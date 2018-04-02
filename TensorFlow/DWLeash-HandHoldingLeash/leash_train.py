@@ -157,10 +157,13 @@ with tf.Session() as sess:
                             out_locs: meta['out_locs'],
                             org_gt_coords: meta['org_gt_coords']})
 
-      out_f = open('tmp_file.txt', 'a+')
-      out_f.write('*** org: ' + ' ' + str(meta['org_gt_coords']))
-      out_f.write('*** pred: ' + ' ' + str(out_dict['pred_coord']))
-      out_f.close()
+      avg_train_normalized_dist = calculteNormalizedValidationDistance(out_dict['pred_coord'], 
+                                            meta['org_gt_coords'],
+                                            meta['bbox_heights'])      
+      out_f_train = open('train_file.txt', 'a+')
+      out_f_train.write(str(epoch) + ' ' + str(batch) + ' ' + str(avg_train_normalized_dist) + '\n')
+      out_f_train.close()      
+      print('*** loss: ', out_dict['loss'])
 
       out_f = open('out_file.txt', 'a+')
       out_f.write(str(epoch) + ' ' + str(batch) + ' ' + str(out_dict['loss']) + '\n')
