@@ -75,7 +75,8 @@ def getTestImageMetaRecords():
   random.shuffle(all_test_visible_idx)
 
   test_anno_file_batch_rows = []
-  test_anno_file = open('leash_anno_testing_data.txt')
+  #test_anno_file = open('leash_anno_testing_data.txt')
+  test_anno_file = open('leash_anno_training_data.txt')
   test_anno_file_lines = test_anno_file.readlines()  
 
   for x in all_test_visible_idx:
@@ -115,7 +116,7 @@ with tf.Session() as sess:
   sess.run(init)
 
   # Restore variables from disk.
-  saver.restore(sess, "./ckpt/model1343.ckpt")
+  saver.restore(sess, "./ckpt/model5.ckpt")
   print("Model restored.")
 
   # Following two lines are for debugging
@@ -140,7 +141,14 @@ with tf.Session() as sess:
       test_dict = sess.run(val_dict, feed_dict =
                                     {images: test_images, 
                                     out_locs: test_meta['out_locs'],
-                                    org_gt_coords: test_meta['org_gt_coords']})  
+                                    org_gt_coords: test_meta['org_gt_coords']})
+      
+      out_f = open('tmp_test_file.txt', 'a+')
+      out_f.write('*** org: ' + ' ' + str(test_meta['org_gt_coords']))
+      out_f.write('*** pred: ' + ' ' + str(test_dict['pred_coord']))
+      out_f.close()
+      print('*** loss: ', test_dict['loss'])
+
       avg_normalized_dist = calculteNormalizedTestDistance(test_dict['pred_coord'], 
                                             test_meta['org_gt_coords'],
                                             test_meta['bbox_heights'])

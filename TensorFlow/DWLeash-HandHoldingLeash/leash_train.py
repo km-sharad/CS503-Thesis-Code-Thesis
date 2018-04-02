@@ -132,8 +132,8 @@ with tf.Session() as sess:
   sess.run(init)
 
   # Restore variables from disk.
-  #saver.restore(sess, "./ckpt/model4845.ckpt")
-  #print("Model restored.")
+  saver.restore(sess, "./ckpt/model4999.ckpt")
+  print("Model restored.")
 
   # Following two lines are for debugging
   # Use <code> python leash_train.py --debug </code> command to debug
@@ -157,7 +157,10 @@ with tf.Session() as sess:
                             out_locs: meta['out_locs'],
                             org_gt_coords: meta['org_gt_coords']})
 
-      # print('poc_shape: ', out_dict['poc_shape'])
+      out_f = open('tmp_file.txt', 'a+')
+      out_f.write('*** org: ' + ' ' + str(meta['org_gt_coords']))
+      out_f.write('*** pred: ' + ' ' + str(out_dict['pred_coord']))
+      out_f.close()
 
       out_f = open('out_file.txt', 'a+')
       out_f.write(str(epoch) + ' ' + str(batch) + ' ' + str(out_dict['loss']) + '\n')
