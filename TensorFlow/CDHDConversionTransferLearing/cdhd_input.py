@@ -8,6 +8,8 @@ from math import exp
 from scipy.misc import imresize
 from scipy.ndimage import zoom
 import sys
+import skimage.transform
+import skimage.io
 
 # data_dir = '../../../../../car_dataset/'
 data_dir = '../../../../car_dataset/'
@@ -48,8 +50,11 @@ def distorted_inputs(stats_dict, batch_size, anno_file_batch_rows):
   im_org = np.asarray([info['im_org'] for info in infos])
   bbox_heights = np.asarray([info['bbox_height'] for info in infos])
 
-  padded_images, cat_padding = concatWithPadding(np.asarray(images), np.asarray(im_sizes))
+  padded_images, cat_padding, warped_target_locs, warped_bbox_heights = \
+          concatWithPadding(np.asarray(images), np.asarray(im_sizes), target_locs, bbox_heights)
   padding = padding + cat_padding
+  target_locs = warped_target_locs
+  bbox_heights = warped_bbox_heights
 
   x = np.arange(start_offset, padded_images.shape[1], output_stride)
   y = np.arange(start_offset, padded_images.shape[2], output_stride)
@@ -97,7 +102,8 @@ def getImage(meta_rec, stats_dict):
     im_meta_dict['img_size'] = [int(i) for i in meta_rec[3].split(',')]
     im_meta_dict['bbox'] = [int(i) for i in meta_rec[8].strip()[0:len(meta_rec[8]) - 1].split(',')]    
 
-    image = Image.open(data_dir + meta_rec[2])
+    # image = Image.open(data_dir + meta_rec[2])
+    image = skimage.io.imread(data_dir + meta_rec[2])
 
     im = np.array(image)
     if(len(im.shape) == 2):
@@ -119,8 +125,9 @@ def getImage(meta_rec, stats_dict):
 
     #TODO: check if this normalizaton is working. 
     # Checked on 2/10/18 - appears to be working. Normalized image pixel values are approximately [-1, +1]  
-    im = np.subtract(im, stats_dict['mean_pixel'])
-    im = np.divide(im, stats_dict['std_pixel'])
+    # Mean subtraction not required here since VGG does mean subtraction
+    # im = np.subtract(im, stats_dict['mean_pixel'])
+    # im = np.divide(im, stats_dict['std_pixel'])
 
     im_size = np.asarray(im.shape)
     
@@ -213,11 +220,13 @@ def lrFlipCDHDDataRecord(im, im_meta_dict):
   return im, im_meta_dict
 
 # Pads images such that all images in batch has greatest length and height among all images in the batch 
-def concatWithPadding(images, im_sizes):
+def concatWithPadding(images, im_sizes, target_locs, bbox_heights):
   max_dim = np.amax(im_sizes, axis=0)[0:2]
 
   paddings = np.zeros([len(images), 4])
   padded_images = []
+  warped_target_locs = []
+  warped_bbox_heights = []
 
   #TODO: find a way to perform following two steps in one operations
   paddings[:,0::3] = np.subtract(max_dim, im_sizes[:,:2])
@@ -227,10 +236,32 @@ def concatWithPadding(images, im_sizes):
 
   for idx in xrange(len(images)):
     padding_tuple = (((paddings[idx])[0], (paddings[idx])[1]), ((paddings[idx])[2], (paddings[idx])[3]), (0,0))
-    padded_images.append(np.pad(images[idx], padding_tuple,'edge'))
+    padded_image = np.pad(images[idx], padding_tuple,'edge')
+    resized_img = skimage.transform.resize(padded_image, (224, 224))
+    padded_images.append(resized_img)
+
+    warp_ratio_1 = round(float(224)/(padded_image.shape[0]),2)
+    warp_ratio_2 = round(float(224)/(padded_image.shape[1]),2)
+
+    print('padded_image.shape[0]: ', padded_image.shape[0])
+    print('padded_image.shape[1]: ', padded_image.shape[1])
+    print('bbox_heights: ', bbox_heights[idx])
+
+    warped_target_locs.append([target_locs[idx][0] * warp_ratio_1, target_locs[idx][1] * warp_ratio_2])
+
+    # TODO: check if the below is correct or if warp_ratio_2 is he right multiplier
+    warped_bbox_heights.append(bbox_heights[0] * warp_ratio_1)
+
+    # Use to write image to disk with when skinage is used, works when mean is disabled
+    skimage.io.imsave('car_ims_before/img_' + str(idx) + '.jpeg', padded_image)
+    skimage.io.imsave('car_ims_after/img_' + str(idx) + '.jpeg', resized_img)
+    
+    sys.exit()
+
+    # Use to write image to disk with when PIL image is used
     # Image.fromarray(np.pad(images[idx], padding_tuple,'edge')).save('car_ims/img_' + str(idx) + '.jpg') #DELETE
 
-  return np.asarray(padded_images), paddings
+  return np.asarray(padded_images), paddings, warped_target_locs, warped_bbox_heights
 
 def computePaddingForImage(im_size, stride):
   padding = np.remainder(im_size[0:2],stride)
