@@ -9,9 +9,10 @@ import cdhd_input
 from tensorflow.python import debug as tf_debug
 import sys
 from scipy.misc import imresize
+import vgg16
 
-# data_dir = '../../../../../car_dataset/'
-data_dir = '../../../../car_dataset/'
+data_dir = '../../../../../../CS503-Thesis/car_dataset/'
+#data_dir = '../../../../car_dataset/'
 total_visible_training_images = 1920    # Number of training images where car door handle is visible
 total_visible_validation_images = 680 # Number of validation images where car door handle is visible
 max_steps = 5000                        # Number of batches to run
@@ -111,13 +112,20 @@ def calculteNormalizedValidationDistance(pred, original, bbox_heights):
   return total_normalized_distance/float(original.shape[0])
 
 global_step = tf.Variable(0, trainable=False, dtype=tf.int32)
-images = tf.placeholder(dtype=tf.float32, shape=[batch_size, None, None, 3])
+images = tf.placeholder(dtype=tf.float32, shape=[batch_size, 224, 224, 3])
 out_locs = tf.placeholder(dtype=tf.float32, shape=[None, 2])
 org_gt_coords = tf.placeholder(dtype=tf.float32, shape=[batch_size, 2])   
 
+vgg = vgg16.Vgg16()
+vgg.build(images)
+
 stats_dict = computeNormalizationParameters() 
 
-res_aux = cdhd.inference(images,out_locs,org_gt_coords)
+vgg_pool4 = vgg.pool4
+print('*** pool 4 shape: ', vgg_pool4.get_shape().as_list())
+
+#res_aux = cdhd.inference(vgg_pool2, out_locs, org_gt_coords)
+res_aux = cdhd.doForwardPass(vgg_pool4, out_locs, org_gt_coords)
 
 ret_dict = cdhd.train(res_aux, global_step)
 
@@ -133,8 +141,8 @@ with tf.Session() as sess:
   sess.run(init)
 
   # Restore variables from disk.
-  saver.restore(sess, "./ckpt/model695.ckpt")
-  print("Model restored.")
+  #saver.restore(sess, "./ckpt/model695.ckpt")
+  #print("Model restored.")
 
   # Following two lines are for debugging
   # Use <code> python cdhd_train.py --debug </code> command to debug
@@ -159,12 +167,12 @@ with tf.Session() as sess:
                             org_gt_coords: meta['org_gt_coords']})
 
       # print('poc_shape: ', out_dict['poc_shape'])
-      print('**** x1_shape_1: ', out_dict['x1_shape_1'])       #DELETE
-      print('**** x2_shape_1: ', out_dict['x2_shape_1'])       #DELETE
-      print('**** x_shape_1: ', out_dict['x_shape_1'])       #DELETE      
-      print('**** pc shape: ', out_dict['pc_shape'].shape)       #DELETE
-      print('**** out_locs_rs_shape: ', out_dict['out_locs_rs_shape'].shape)       #DELETE
-      print('**** nw_reshape_shape: ', out_dict['nw_reshape_shape'].shape)       #DELETE      
+      #print('**** x1_shape_1: ', out_dict['x1_shape_1'])       #DELETE
+      #print('**** x2_shape_1: ', out_dict['x2_shape_1'])       #DELETE
+      #print('**** x_shape_1: ', out_dict['x_shape_1'])       #DELETE      
+      #print('**** pc shape: ', out_dict['pc_shape'].shape)       #DELETE
+      #print('**** out_locs_rs_shape: ', out_dict['out_locs_rs_shape'].shape)       #DELETE
+      #print('**** nw_reshape_shape: ', out_dict['nw_reshape_shape'].shape)       #DELETE      
 
       out_f = open('out_file.txt', 'a+')
       out_f.write(str(epoch) + ' ' + str(batch) + ' ' + str(out_dict['loss']) + '\n')

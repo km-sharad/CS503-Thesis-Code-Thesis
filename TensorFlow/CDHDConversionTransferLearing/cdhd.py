@@ -218,8 +218,8 @@ def columnActivation(aug_x, column_num, fwd_dict):
   of_y = tf.reshape(of_y, [tf.shape(of_y)[0], tf.shape(of_y)[1], tf.shape(of_y)[2], 1])
 
   #po = p(i) of eq 2 from section 3.3 of paper
-  po = tf.concat(3, [of_x, of_y], name="conct_of_x_of_y_into_po")
-  # po = tf.concat([of_x, of_y], 3, name="conct_of_x_of_y_into_po")
+  #po = tf.concat(3, [of_x, of_y], name="conct_of_x_of_y_into_po")
+  po = tf.concat([of_x, of_y], 3, name="conct_of_x_of_y_into_po")
 
   poc = tf.reduce_sum(tf.multiply(po,nw), axis=(1,2))
   poc = tf.reshape(poc, [tf.shape(poc)[0], 1, tf.shape(poc)[1], 1])
@@ -281,6 +281,16 @@ def columnActivation(aug_x, column_num, fwd_dict):
 
 def doForwardPass(x, out_locs, gt_loc):
 
+  with tf.variable_scope('convBridge') as scope:
+    kernel = _variable_with_weight_decay('weights',
+                                         shape=[5, 5, 512, 128],
+                                         stddev=1,
+                                         wd=0.00005)
+    conv = tf.nn.conv2d(x, kernel, [1, 1, 1, 1], padding='SAME')
+    biases = _variable_on_cpu('biases', [128], tf.constant_initializer(1.0), wd=0.0)
+    pre_activation = tf.nn.bias_add(conv, biases)
+    x = tf.nn.relu(pre_activation, name=scope.name)  
+
   res_aux = {}    #DELETE
 
   grid_x = np.arange(-grid_size, grid_size + 1, grid_stride)
@@ -305,8 +315,8 @@ def doForwardPass(x, out_locs, gt_loc):
   xa = tf.multiply(tf.cast(tf.divide(tf.ones([tf.shape(x)[0], \
                 tf.shape(x)[1],tf.shape(x)[2],1], tf.int32), n), tf.float32), pred_factor)
 
-  x = tf.concat(3, [xa,x])    #IN NEWER VERSION OF TF CORRECT COMMAND IS: tf.concat([xa,x], 3)
-  # x = tf.concat([xa,x], 3)    
+  #x = tf.concat(3, [xa,x])    #IN NEWER VERSION OF TF CORRECT COMMAND IS: tf.concat([xa,x], 3)
+  x = tf.concat([xa,x], 3)    
 
   res_steps = []
 
@@ -346,8 +356,8 @@ def doForwardPass(x, out_locs, gt_loc):
 
     #combining activation of sixth convolution with output of previous layer
     #TODO: check if required for last column
-    aug_x[0] = tf.concat(3, [out_x[0],x_sans_xa], name='concat_x_and_a_sans_xa') #xx
-    # aug_x[0] = tf.concat([out_x[0],x_sans_xa], 3, name='concat_x_and_a_sans_xa') #xx
+    #aug_x[0] = tf.concat(3, [out_x[0],x_sans_xa], name='concat_x_and_a_sans_xa') #xx
+    aug_x[0] = tf.concat([out_x[0],x_sans_xa], 3, name='concat_x_and_a_sans_xa') #xx
 
     aug_x[1] = out_x[1]     #pc + poc
     aug_x[2] = out_x[2]     #indiv_preds
