@@ -126,8 +126,8 @@ def getImage(meta_rec, stats_dict):
     #TODO: check if this normalizaton is working. 
     # Checked on 2/10/18 - appears to be working. Normalized image pixel values are approximately [-1, +1]  
     # Mean subtraction not required here since VGG does mean subtraction
-    # im = np.subtract(im, stats_dict['mean_pixel'])
-    # im = np.divide(im, stats_dict['std_pixel'])
+    im = np.subtract(im, stats_dict['mean_pixel'])
+    im = np.divide(im, stats_dict['std_pixel'])
 
     im_size = np.asarray(im.shape)
     
