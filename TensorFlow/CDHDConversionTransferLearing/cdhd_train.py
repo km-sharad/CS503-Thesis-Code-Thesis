@@ -186,9 +186,9 @@ with tf.Session() as sess:
                             org_gt_coords: meta['org_gt_coords']})
 
       # print('poc_shape: ', out_dict['poc_shape'])
-      #print('**** x1_shape_1: ', out_dict['x1_shape_1'])       #DELETE
-      #print('**** x2_shape_1: ', out_dict['x2_shape_1'])       #DELETE
-      #print('**** x_shape_1: ', out_dict['x_shape_1'])       #DELETE      
+      # print('**** x1_shape_1: ', out_dict['x1_shape_1'])       #DELETE
+      # print('**** x2_shape_1: ', out_dict['x2_shape_1'])       #DELETE
+      # print('**** x_shape_1: ', out_dict['x_shape_1'])       #DELETE      
       # print('**** pc shape: ', out_dict['pc_shape'].shape)       #DELETE
       #print('**** out_locs_rs_shape: ', out_dict['out_locs_rs_shape'].shape)       #DELETE
       # print('**** nw_reshape_shape: ', out_dict['nw_reshape_shape'].shape)       #DELETE  
