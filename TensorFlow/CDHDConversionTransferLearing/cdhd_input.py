@@ -11,8 +11,8 @@ import sys
 import skimage.transform
 import skimage.io
 
-data_dir = '../../../../../../CS503-Thesis/car_dataset/'
-#data_dir = '../../../../car_dataset/'
+# data_dir = '../../../../../car_dataset/'
+data_dir = '../../../../car_dataset/'
 max_im_side = 500
 init_padding = 32
 min_side = 64
@@ -56,8 +56,8 @@ def distorted_inputs(stats_dict, batch_size, anno_file_batch_rows):
   target_locs = warped_target_locs
   bbox_heights = warped_bbox_heights
 
-  x = np.arange(start_offset, padded_images.shape[1]+1, output_stride)
-  y = np.arange(start_offset, padded_images.shape[2]+1, output_stride)
+  x = np.arange(start_offset, padded_images.shape[1], output_stride)
+  y = np.arange(start_offset, padded_images.shape[2], output_stride)
 
   out_locs_list = []
   for xi in xrange(x.shape[0]):
@@ -126,8 +126,8 @@ def getImage(meta_rec, stats_dict):
     #TODO: check if this normalizaton is working. 
     # Checked on 2/10/18 - appears to be working. Normalized image pixel values are approximately [-1, +1]  
     # Mean subtraction not required here since VGG does mean subtraction
-    im = np.subtract(im, stats_dict['mean_pixel'])
-    im = np.divide(im, stats_dict['std_pixel'])
+    # im = np.subtract(im, stats_dict['mean_pixel'])
+    # im = np.divide(im, stats_dict['std_pixel'])
 
     im_size = np.asarray(im.shape)
     
@@ -243,14 +243,20 @@ def concatWithPadding(images, im_sizes, target_locs, bbox_heights):
     warp_ratio_1 = round(float(224)/(padded_image.shape[0]),2)
     warp_ratio_2 = round(float(224)/(padded_image.shape[1]),2)
 
+    # print('padded_image.shape[0]: ', padded_image.shape[0])
+    # print('padded_image.shape[1]: ', padded_image.shape[1])
+    # print('bbox_heights: ', bbox_heights[idx])
+
     warped_target_locs.append([target_locs[idx][0] * warp_ratio_1, target_locs[idx][1] * warp_ratio_2])
 
     # TODO: check if the below is correct or if warp_ratio_2 is he right multiplier
     warped_bbox_heights.append(bbox_heights[0] * warp_ratio_1)
 
     # Use to write image to disk with when skinage is used, works when mean is disabled
-    #skimage.io.imsave('car_ims_before/img_' + str(idx) + '.jpeg', padded_image)
-    #skimage.io.imsave('car_ims_after/img_' + str(idx) + '.jpeg', resized_img)
+    skimage.io.imsave('car_ims_before/img_' + str(idx) + '.jpeg', padded_image)
+    skimage.io.imsave('car_ims_after/img_' + str(idx) + '.jpeg', resized_img)
+    
+    # sys.exit()
 
     # Use to write image to disk with when PIL image is used
     # Image.fromarray(np.pad(images[idx], padding_tuple,'edge')).save('car_ims/img_' + str(idx) + '.jpg') #DELETE

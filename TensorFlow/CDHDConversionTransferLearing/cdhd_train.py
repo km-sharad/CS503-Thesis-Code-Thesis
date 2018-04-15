@@ -10,6 +10,7 @@ from tensorflow.python import debug as tf_debug
 import sys
 from scipy.misc import imresize
 import vgg16
+# import utils
 
 data_dir = '../../../../../../CS503-Thesis/car_dataset/'
 #data_dir = '../../../../car_dataset/'
@@ -69,7 +70,6 @@ def computeNormalizationParameters():
   stats_dict = {'mean_pixel': mean_pixel, 'std_pixel': std_pixel}
 
   #store values so that there's no need to compute next time    
-  
 
   return stats_dict
 
@@ -111,37 +111,57 @@ def calculteNormalizedValidationDistance(pred, original, bbox_heights):
   # return average normalized distance for the batch of 10 images
   return total_normalized_distance/float(original.shape[0])
 
-global_step = tf.Variable(0, trainable=False, dtype=tf.int32)
-images = tf.placeholder(dtype=tf.float32, shape=[batch_size, 224, 224, 3])
-out_locs = tf.placeholder(dtype=tf.float32, shape=[None, 2])
-org_gt_coords = tf.placeholder(dtype=tf.float32, shape=[batch_size, 2])   
+# global_step = tf.Variable(0, trainable=False, dtype=tf.int32)
+# #images = tf.placeholder(dtype=tf.float32, shape=[batch_size, 224, 224, 3])
+# images = tf.placeholder(dtype=tf.float32, shape=[2, 224, 224, 3])
+# out_locs = tf.placeholder(dtype=tf.float32, shape=[None, 2])
+# org_gt_coords = tf.placeholder(dtype=tf.float32, shape=[batch_size, 2])   
 
-vgg = vgg16.Vgg16()
-vgg.build(images)
+# vgg = vgg16.Vgg16()
+# vgg.build(images)
 
-stats_dict = computeNormalizationParameters() 
+# stats_dict = computeNormalizationParameters() 
 
-vgg_pool4 = vgg.pool4
-print('*** pool 4 shape: ', vgg_pool4.get_shape().as_list())
+# res_aux = cdhd.doForwardPass(vgg.pool4, out_locs, org_gt_coords)
 
-#res_aux = cdhd.inference(vgg_pool2, out_locs, org_gt_coords)
-res_aux = cdhd.doForwardPass(vgg_pool4, out_locs, org_gt_coords)
+# ret_dict = cdhd.train(res_aux, global_step)
 
-ret_dict = cdhd.train(res_aux, global_step)
+# val_dict = cdhd.test(res_aux, global_step)
 
-val_dict = cdhd.test(res_aux, global_step)
+# init = tf.global_variables_initializer()
 
-init = tf.global_variables_initializer()
+# saver = tf.train.Saver(max_to_keep=20)
 
-saver = tf.train.Saver(max_to_keep=20)
 
 with tf.Session() as sess:
 # with tf.Session(config=tf.ConfigProto(log_device_placement=True)) as sess:  
+
+  global_step = tf.Variable(0, trainable=False, dtype=tf.int32)
+  images = tf.placeholder(dtype=tf.float32, shape=[batch_size, 224, 224, 3])
+  # images = tf.placeholder(dtype=tf.float32, shape=[2, 224, 224, 3])
+  out_locs = tf.placeholder(dtype=tf.float32, shape=[None, 2])
+  org_gt_coords = tf.placeholder(dtype=tf.float32, shape=[batch_size, 2])   
+
+  vgg = vgg16.Vgg16()
+  vgg.build(images)
+
+  stats_dict = computeNormalizationParameters() 
+
+  res_aux = cdhd.doForwardPass(vgg.pool4, out_locs, org_gt_coords)
+
+  ret_dict = cdhd.train(res_aux, global_step)
+
+  val_dict = cdhd.test(res_aux, global_step)
+
+  init = tf.global_variables_initializer()
+
+  saver = tf.train.Saver(max_to_keep=20)
+
   writer = tf.summary.FileWriter('./graphs', sess.graph)
   sess.run(init)
 
   # Restore variables from disk.
-  #saver.restore(sess, "./ckpt/model695.ckpt")
+  #saver.restore(sess, "./ckpt/model409.ckpt")
   #print("Model restored.")
 
   # Following two lines are for debugging
@@ -150,7 +170,6 @@ with tf.Session() as sess:
   # sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
 
   all_train_visible_idx = [x for x in xrange(0,total_visible_training_images)]
-  #random.shuffle(all_train_visible_idx)  
 
   for epoch in xrange(max_steps):
     start_time = time.time()
@@ -170,9 +189,24 @@ with tf.Session() as sess:
       #print('**** x1_shape_1: ', out_dict['x1_shape_1'])       #DELETE
       #print('**** x2_shape_1: ', out_dict['x2_shape_1'])       #DELETE
       #print('**** x_shape_1: ', out_dict['x_shape_1'])       #DELETE      
-      #print('**** pc shape: ', out_dict['pc_shape'].shape)       #DELETE
+      # print('**** pc shape: ', out_dict['pc_shape'].shape)       #DELETE
       #print('**** out_locs_rs_shape: ', out_dict['out_locs_rs_shape'].shape)       #DELETE
-      #print('**** nw_reshape_shape: ', out_dict['nw_reshape_shape'].shape)       #DELETE      
+      # print('**** nw_reshape_shape: ', out_dict['nw_reshape_shape'].shape)       #DELETE  
+      # print('**** row1_act: ', out_dict['row1_act'].shape)       #DELETE  
+      # print('**** row2_act: ', out_dict['row2_act'].shape)       #DELETE  
+      # print('**** row3_act shape: ', out_dict['row3_act'].shape)       #DELETE  
+      # print('**** row3_act: ', out_dict['row3_act'][2,8:12,4:9,0:1])       #DELETE  
+      # print('**** w_act_shape: ', out_dict['w_act'].shape)       #DELETE  
+      # print('**** nw_act_shape: ', out_dict['nw_act'].shape)       #DELETE  
+      # print('**** w_act: ', out_dict['w_act'][2,8:12,4:9,0])       #DELETE  
+      # print('**** ew_act: ', out_dict['ew_act'])       #DELETE  
+      # print('**** tf mean: ', out_dict['sew_act'])       #DELETE  
+      # print('**** nw_act: ', out_dict['nw_act'])       #DELETE  
+      # print('**** before: ', out_dict['sub_act'][2,8:9,4,0])       #DELETE  
+      # print('**** mean: ', out_dict['sub_min_act'])       #DELETE  
+      # print('**** after: ', out_dict['s_max_act'][2,8:12,4:9,0])       #DELETE  
+
+      # print('pool4 val: ', out_dict['pool4_val'])
 
       out_f = open('out_file.txt', 'a+')
       out_f.write(str(epoch) + ' ' + str(batch) + ' ' + str(out_dict['loss']) + '\n')
@@ -189,11 +223,6 @@ with tf.Session() as sess:
     out_f_epoch = open('out_epoch.txt', 'a+')
     out_f_epoch.write(str(epoch) + ' ' + str(out_dict['loss']) + '\n')
     out_f_epoch.close()    
-
-    out_im_epoch = open('out_image_name.txt', 'a+')
-    for img_name in anno_file_batch_rows:
-      out_im_epoch.write(str(epoch) + ' ' + str(img_name.split('|')[2]) + '\n')
-    out_im_epoch.close()        
 
     # Validation step
     if((epoch % 2) == 0):

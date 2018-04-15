@@ -73,6 +73,9 @@ def _variable_with_weight_decay(name, shape, stddev, wd):
 
 def getNormalizedLocationWeightsFast(w):
   #Softmax
+  w_mean, w_var = tf.nn.moments(w, axes=[1,2])
+  w = tf.divide(tf.subtract(w, w_mean[:,None,None,:]), tf.sqrt(w_var[:,None,None,:]))
+
   a = tf.reduce_max(w, axis=(1,2))
   ew = tf.exp(tf.subtract(w, a[:,None,None,:]))
   sew = tf.reduce_sum(ew, axis=(1,2))
@@ -127,6 +130,7 @@ def columnActivation(aug_x, column_num, fwd_dict):
     biases = _variable_on_cpu('col' + str(column_num) + 'row1biases', [nfc], tf.constant_initializer(0.1), wd=0.0)
     a = tf.nn.bias_add(conv, biases)
     # a = tf.nn.relu(a, name=scope.name)
+    res['row1_act'] = a      #DELETE  
 
   if(column_num == 0):
     with tf.variable_scope('row2') as scope:
@@ -138,7 +142,8 @@ def columnActivation(aug_x, column_num, fwd_dict):
       conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
       biases = _variable_on_cpu('row2biases', [nfc], tf.constant_initializer(0.1), wd=0.0)
       a = tf.nn.bias_add(conv, biases)
-      # a = tf.nn.relu(a, name=scope.name)  
+      # a = tf.nn.relu(a, name=scope.name)
+      res['row2_act'] = a      #DELETE    
 
     with tf.variable_scope('row3') as scope:
       kernel = _variable_with_weight_decay('row3weights',
@@ -148,7 +153,8 @@ def columnActivation(aug_x, column_num, fwd_dict):
       kernel = tf.multiply(kernel, 0.0250)      #line 327-334 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
       conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
       biases = _variable_on_cpu('row3biases', [num_out_filters], tf.constant_initializer(0.1), wd=0.0)
-      a = tf.nn.bias_add(conv, biases)                
+      a = tf.nn.bias_add(conv, biases)
+      res['row3_act'] = a      #DELETE                    
   else:
     with tf.variable_scope('row2', reuse=True) as scope:
       kernel = _variable_with_weight_decay('row2weights',
@@ -160,6 +166,7 @@ def columnActivation(aug_x, column_num, fwd_dict):
       biases = _variable_on_cpu('row2biases', [nfc], tf.constant_initializer(0.1), wd=0.0)
       a = tf.nn.bias_add(conv, biases)
       # a = tf.nn.relu(a, name=scope.name)
+      res['row2_act'] = a      #DELETE    
 
     with tf.variable_scope('row3', reuse=True) as scope:
       kernel = _variable_with_weight_decay('row3weights',
@@ -169,14 +176,19 @@ def columnActivation(aug_x, column_num, fwd_dict):
       kernel = tf.multiply(kernel, 0.0250)      #line 327-334 in warpTrainCNNCDHDCentroidChainGridPredSharedRevFastExp3
       conv = tf.nn.conv2d(a, kernel, [1, 1, 1, 1], padding='SAME')
       biases = _variable_on_cpu('row3biases', [num_out_filters], tf.constant_initializer(0.1), wd=0.0)
-      a = tf.nn.bias_add(conv, biases)      
+      a = tf.nn.bias_add(conv, biases)  
+      res['row3_act'] = a      #DELETE        
 
   #e.g.: a shape: [10, 42, 32, 26], w shape: [10, 42, 32, 1]
   w = a[:, :, :, 0:1]
 
   #getNormalizedLocationWeightsFast() returns softmax of the activation w
+  # nw, ew, sew, sub, sub_min, s_max = getNormalizedLocationWeightsFast(w)
   nw = getNormalizedLocationWeightsFast(w)
 
+  res['w_act'] = w      #DELETE        
+  res['nw_act'] = nw      #DELETE        
+  
   # nw[0] = batch size, nw[1] = rows, nw[2] = columns 
   nw_reshape = tf.reshape(nw, [tf.shape(nw)[0], -1])
 
@@ -340,9 +352,15 @@ def doForwardPass(x, out_locs, gt_loc):
     res_aux['pc_shape_' + str(i)] = res_step['pc_shape']     #DELETE
     res_aux['out_locs_rs_shape_' + str(i)] = res_step['out_locs_rs_shape']     #DELETE
     res_aux['nw_reshape_shape_' + str(i)] = res_step['nw_reshape_shape']     #DELETE    
+    res_aux['row1_act_' + str(i)] = res_step['row1_act']     #DELETE    
+    res_aux['row2_act_' + str(i)] = res_step['row2_act']     #DELETE    
+    res_aux['row3_act_' + str(i)] = res_step['row3_act']     #DELETE   
+    res_aux['w_act_' + str(i)] = res_step['w_act']     #DELETE   
+    res_aux['nw_act_' + str(i)] = res_step['nw_act']     #DELETE   
     res_aux['x1_shape_' + str(i)] = tf.shape(x)[1]          #DELETE
     res_aux['x2_shape_' + str(i)] = tf.shape(x)[2]          #DELETE
     res_aux['x_shape_' + str(i)] = tf.shape(x)              #DELETE    
+    res_aux['pool4_val_' + str(i)] = x
 
     #Output of step 1 goes as input to step 2 and output of step 2 goes as input to step 3
     #TODO: check size of x_sans_xa after data is fed. Note: checked on 12/3/17 - passed
@@ -477,8 +495,6 @@ def getSharedParametersList():
   var_list = var_list + tf.get_collection('row2biases')  
   var_list = var_list + tf.get_collection('row3weights')
   var_list = var_list + tf.get_collection('row3biases')    
-  var_list = var_list + tf.get_collection('weights') 
-  var_list = var_list + tf.get_collection('biases')
 
   return var_list
 
@@ -490,10 +506,25 @@ def train(res_aux, global_step):
 
   ret_dict['pc_shape'] = res_aux['pc_shape_1']    #DELETE 
   ret_dict['out_locs_rs_shape'] = res_aux['out_locs_rs_shape_1']    #DELETE 
-  ret_dict['nw_reshape_shape'] = res_aux['nw_reshape_shape_1']    #DELETE   
+  ret_dict['nw_reshape_shape'] = res_aux['nw_reshape_shape_0']    #DELETE 
+  ret_dict['row1_act'] = res_aux['row1_act_0']    #DELETE     
+  ret_dict['row2_act'] = res_aux['row2_act_0']    #DELETE     
+  ret_dict['row3_act'] = res_aux['row3_act_0']    #DELETE     
+  ret_dict['w_act'] = res_aux['w_act_0']    #DELETE     
+  ret_dict['nw_act'] = res_aux['nw_act_0']    #DELETE     
   ret_dict['x1_shape_1'] = res_aux['x1_shape_1']    #DELETE
   ret_dict['x2_shape_1'] = res_aux['x2_shape_1']    #DELETE
-  ret_dict['x_shape_1'] = res_aux['x_shape_1']    #DELETE  
+  ret_dict['x_shape_1'] = res_aux['x_shape_1']    #DELETE 
+  ret_dict['pool4_val'] = res_aux['pool4_val_0']    #DELETE
+
+  var_list = []
+  var_list = var_list + tf.get_collection('col0row1weights')
+  var_list = var_list + tf.get_collection('col0row1biases')
+  var_list = var_list + tf.get_collection('col1row1weights')
+  var_list = var_list + tf.get_collection('col1row1biases')
+  var_list = var_list + tf.get_collection('col2row1weights')
+  var_list = var_list + tf.get_collection('col2row1biases')
+  var_list = var_list + getSharedParametersList()
 
   total_loss = tf.reduce_sum(res_aux['loss'])
   a_optimizer = tf.train.AdamOptimizer()
@@ -505,7 +536,7 @@ def train(res_aux, global_step):
     use_locking=False,
     name='Adam_Opt')
 
-  minimizer = a_optimizer.minimize(total_loss, global_step=global_step)
+  minimizer = a_optimizer.minimize(total_loss, global_step=global_step, var_list=var_list)
   ret_dict['minimizer'] = minimizer
 
   return ret_dict
