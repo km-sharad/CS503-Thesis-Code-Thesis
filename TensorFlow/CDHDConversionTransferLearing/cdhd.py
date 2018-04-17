@@ -73,6 +73,8 @@ def _variable_with_weight_decay(name, shape, stddev, wd):
 
 def getNormalizedLocationWeightsFast(w):
   #Softmax
+  # Normalization ((weight-mean))/sd )of offset_weights is required since offset_weight has high
+  # positive and negetive values, which results in overflow and underflow for calculating exponentiation.  
   w_mean, w_var = tf.nn.moments(w, axes=[1,2])
   w = tf.divide(tf.subtract(w, w_mean[:,None,None,:]), tf.sqrt(w_var[:,None,None,:]))
 
@@ -211,10 +213,12 @@ def columnActivation(aug_x, column_num, fwd_dict):
 
   offset_wts = a[:, :, :, 1: (grid_stride + 1)]
 
+  # Softmax
+  # Normalization ((weight-mean))/sd )of offset_weights is required since offset_weight has high
+  # positive and negetive values, which results in overflow and underflow for calculating exponentiation.
   ow_mean, ow_var = tf.nn.moments(offset_wts, axes=[3])
   offset_wts = tf.divide(tf.subtract(offset_wts, ow_mean[:,:,:,None]), tf.sqrt(ow_var[:,:,:,None]))  
 
-  # Softmax
   offset_max = tf.reduce_max(offset_wts, axis=3)
   offset_wts = tf.subtract(offset_wts, offset_max[:,:,:,None])
   offset_wts = tf.exp(offset_wts)
