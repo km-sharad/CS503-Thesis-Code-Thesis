@@ -202,6 +202,7 @@ with tf.Session() as sess:
       # print('**** ew_act: ', out_dict['ew_act'])       #DELETE  
       # print('**** tf mean: ', out_dict['sew_act'])       #DELETE  
       # print('**** nw_act: ', out_dict['nw_act'])       #DELETE  
+      # print('**** offset_wts_act: ', out_dict['offset_wts_act'][2,8:12,4:9,0:1])       #DELETE  
       # print('**** before: ', out_dict['sub_act'][2,8:9,4,0])       #DELETE  
       # print('**** mean: ', out_dict['sub_min_act'])       #DELETE  
       # print('**** after: ', out_dict['s_max_act'][2,8:12,4:9,0])       #DELETE  

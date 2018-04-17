@@ -211,10 +211,14 @@ def columnActivation(aug_x, column_num, fwd_dict):
 
   offset_wts = a[:, :, :, 1: (grid_stride + 1)]
 
+  ow_mean, ow_var = tf.nn.moments(offset_wts, axes=[3])
+  offset_wts = tf.divide(tf.subtract(offset_wts, ow_mean[:,:,:,None]), tf.sqrt(ow_var[:,:,:,None]))  
+
   # Softmax
   offset_max = tf.reduce_max(offset_wts, axis=3)
   offset_wts = tf.subtract(offset_wts, offset_max[:,:,:,None])
   offset_wts = tf.exp(offset_wts)
+  res['offset_wts_exp'] = offset_wts      #DELETE        
   sum_offset_wts = tf.reduce_sum(offset_wts, axis=3)
   offset_wts = tf.divide(offset_wts, sum_offset_wts[:,:,:,None])  #o(j) from section 3.3 of paper
 
@@ -357,6 +361,7 @@ def doForwardPass(x, out_locs, gt_loc):
     res_aux['row3_act_' + str(i)] = res_step['row3_act']     #DELETE   
     res_aux['w_act_' + str(i)] = res_step['w_act']     #DELETE   
     res_aux['nw_act_' + str(i)] = res_step['nw_act']     #DELETE   
+    res_aux['offset_wts_act_' + str(i)] = res_step['offset_wts_exp']     #DELETE   
     res_aux['x1_shape_' + str(i)] = tf.shape(x)[1]          #DELETE
     res_aux['x2_shape_' + str(i)] = tf.shape(x)[2]          #DELETE
     res_aux['x_shape_' + str(i)] = tf.shape(x)              #DELETE    
@@ -512,6 +517,7 @@ def train(res_aux, global_step):
   ret_dict['row3_act'] = res_aux['row3_act_0']    #DELETE     
   ret_dict['w_act'] = res_aux['w_act_0']    #DELETE     
   ret_dict['nw_act'] = res_aux['nw_act_0']    #DELETE     
+  ret_dict['offset_wts_act'] = res_aux['offset_wts_act_0']    #DELETE     
   ret_dict['x1_shape_1'] = res_aux['x1_shape_1']    #DELETE
   ret_dict['x2_shape_1'] = res_aux['x2_shape_1']    #DELETE
   ret_dict['x_shape_1'] = res_aux['x_shape_1']    #DELETE 
