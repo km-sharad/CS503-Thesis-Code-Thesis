@@ -9,8 +9,9 @@ import cdhd_input
 from tensorflow.python import debug as tf_debug
 import sys
 from scipy.misc import imresize
+import vgg16
 
-data_dir = '../../../../../../../../CS503-Thesis/car_dataset/'
+data_dir = '../../../../../../CS503-Thesis/car_dataset/'
 #data_dir = '../../../../car_dataset/'
 total_visible_training_images = 1920    # Number of training images where car door handle is visible
 total_visible_test_images = 1200 # Number of validation images where car door handle is visible
@@ -97,26 +98,30 @@ def calculteNormalizedTestDistance(pred, original, bbox_heights):
   return total_normalized_distance/float(original.shape[0])
 
 global_step = tf.Variable(0, trainable=False, dtype=tf.int32)
-images = tf.placeholder(dtype=tf.float32, shape=[batch_size, None, None, 3])
+images = tf.placeholder(dtype=tf.float32, shape=[batch_size, 224, 224, 3])
 out_locs = tf.placeholder(dtype=tf.float32, shape=[None, 2])
-org_gt_coords = tf.placeholder(dtype=tf.float32, shape=[batch_size, 2])   
+org_gt_coords = tf.placeholder(dtype=tf.float32, shape=[batch_size, 2])  
 
 stats_dict = computeNormalizationParameters() 
 
-res_aux = cdhd.inference(images,out_locs,org_gt_coords)
+vgg = vgg16.Vgg16()
+vgg.build(images)
+
+# res_aux = cdhd.inference(images,out_locs,org_gt_coords)
+res_aux = cdhd.doForwardPass(vgg.pool4, out_locs, org_gt_coords)
 
 val_dict = cdhd.test(res_aux, global_step)
 
 init = tf.global_variables_initializer()
 
-saver = tf.train.Saver(max_to_keep=10)
+saver = tf.train.Saver(max_to_keep=1)
 
 with tf.Session() as sess:
   writer = tf.summary.FileWriter('./graphs', sess.graph)
   sess.run(init)
 
   # Restore variables from disk.
-  saver.restore(sess, "./ckpt/model695.ckpt")
+  saver.restore(sess, "./ckpt/model27.ckpt")
   print("Model restored.")
 
   # Following two lines are for debugging
@@ -124,8 +129,8 @@ with tf.Session() as sess:
   # sess = tf_debug.LocalCLIDebugWrapperSession(sess)
   # sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
 
-  all_train_visible_idx = [x for x in xrange(0,total_visible_training_images)]
-  random.shuffle(all_train_visible_idx)  
+  # all_train_visible_idx = [x for x in xrange(0,total_visible_training_images)]
+  # random.shuffle(all_train_visible_idx)  
 
   for norm_dist in [0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1]:
     print('norm_dist: ', norm_dist)
@@ -138,7 +143,6 @@ with tf.Session() as sess:
       test_images, test_meta = cdhd_input.distorted_inputs(stats_dict, batch_size, \
               anno_file_batch_rows[batch * batch_size : (batch * batch_size) + batch_size])      
 
-      # test_images, test_meta = cdhd_input.distorted_inputs(stats_dict, batch_size, getTestImageMetaRecords())
       test_dict = sess.run(val_dict, feed_dict =
                                     {images: test_images, 
                                     out_locs: test_meta['out_locs'],
