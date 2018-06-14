@@ -77,7 +77,7 @@
       \begin{subfigure}[b]{1.00\linewidth}
         \includegraphics[width=\linewidth]{Images/Figure1-CNN}
       \end{subfigure}
-      \caption{Schematic diagram of a Convolutional Neural Net (CNN). A typical layer of a CNN has three components - convolution (CONV), non-linearity (ReLU) and pooling (POOL). Many such layers are stacked together to create a deep architecture. Input enters the architecture from the left (image of the car) and after going thru many layers of CONV-ReLU-POOL transformations produces output (image classification) in the rightmost layer. In one part of the architecture (feature learning), inputs and outputs are partially connected, whereas towards the end learned features of the model are passed thru a fully connected layer for classification or regression.}
+      \caption{Schematic diagram of a Convolutional Neural Net (CNN). A typical layer of a CNN has three components - convolution (CONV), non-linearity (ReLU) and pooling (POOL). Many such layers are stacked together to create a deep architecture. Input enters the architecture from the left (image of the car) and after going thru many layers of CONV-ReLU-POOL transformations produces output (image classification) in the rightmost layer. In front part of the architecture (feature learning), inputs and outputs are partially connected, whereas towards the end learned features of the model are passed thru a fully connected layer to generate a probability distribution for classification classes or a real value for regression.}
       \label{fig:cnn}
     \end{figure}
 
@@ -114,7 +114,6 @@
     The hope that a model that has low training error will also have small test error is based upon the assumption that that the examples in each dataset are independent from each other, and that the training set and test set are identically distributed, drawn from the same probability distribution, in other words examples in training and test datasets are drawn in identically and independently distributed (IID) fashion.\\
 
      %local minima problem
-     %underfitting and overfitting problems
     
     \noindent
     \textbf{\textit{Validation Set and Hyper-Parameter Tuning}}\\
@@ -122,9 +121,7 @@
 
     \noindent
     \textbf{\textit{Overfitting and Regularization}}\\    
-    Placeholder     
-
-
+    Because of their large numbers of parameters, CNN models have a proclivity to overfit when not designed with suitable regularization parameters or when there is not sufficient data to train the model. Overfitting results in a model that shows high variance when the model is trained on different training datasets (Hastie \textit {et al.} [12]). Because of overfitting in a CNN, the training fails to achieve good model generalizations resulting in good training accuracy, but poor performance on test datasets. Bias in a model is another source of prediction error which is usually caused by wrong selection of model for the task. In case of overfitting, variance rather than bias dominates the estimation error. Regularization addresses the problem of overfitting by reducing variance significantly while not increasing the bias (Goodfellow \textit {et al.} [13]). \(L_1\) and \(L_2\) are two commonly used regularization techniques in machine learning in general, including neural networks. The dropout technique proposed by Hinton \textit {et al.} [14] is another regularization technique used specifically with neural networks. In my implementation of a CNN for the ``localizing little landmarks'' task,I explored \(L_1\), \(L_2\) regularizations as well as dropout and I report my findings in the experiments section 5.3. In [1] Singh \textit{et al.} use \(L_2\) regularization as I explain in section 4.3.
 
      \section{Object Detection in Region Convolutional Neural Network(R-CNN)}
      The relevant area for coverage here is how object detection works in R-CNN
@@ -139,54 +136,7 @@
 
     In this research I use transfer learning to demonstrate that instead of training a network from scratch, using a pre-trained network may reduce  the training time significantly. Pan \textit {et al.} in [10] do an in depth study of feasibility of transfer learning and show that knowledge learned by a model in one domain can be transferred to another machine learning model in a different domain even when the feature space and/or the data distribution of source and target systems is not the same. Shin \textit {et al.} also reiterate this idea in [11] where they employ transfer learning to fine-tune a CNN model pre-trained on natural image dataset (RGB) to medical image (monochrome) classification task. This idea has been successfully used by numerous researchers and practitioners in image classification and localization tasks by exploiting patterns learned by deep CNN models trained on enormous amounts of images to fine tune their own models. 
 
-    \chapter{Deep Learning/Convolutional Neural Network(CNN)}
-    \doublespacing
-    Since its resurgence in 2012, when a neural network based architecture called AlexNet was proposed by Krizhevsky \textit {et al.} [26] for image classification of ImageNet [3] dataset, a neural network variant called Convolutional Neural Network (CNN) has achieved significant improvement in state-of-the-art for classification as well as regression tasks. A CNN model consists of many layers (Figure 1) and each layer learns features or representations at increasing levels of abstraction. This property of a CNN was demonstrated by Fergus \textit{et al.} in [4, 5] using a \textit{deconvnet} that maps these representations back to the input pixel space. CNN were created to overcome the scaling problem of traditional neural networks. In traditional neural networks, neurons in one layer of the network are connected to all the neurons in adjacent layers, which makes it difficult to scale for intelligent image understanding and analysis.  Neurons (also called filters or kernels) in each layer of the CNN are connected only to a small region of the input and are three dimensional (Figure 2). 
-
-    \begin{figure}[h]
-      \centering
-      \begin{subfigure}[b]{0.90\linewidth}
-        \includegraphics[width=\linewidth]{Images/Figure1-CNN}
-      \end{subfigure}
-      \caption{Convolutional Neural Net}
-      \label{fig:cnn}
-    \end{figure}
-
-
-    \begin{wrapfigure}{l}{0.5\textwidth}
-        \begin{center}
-            \includegraphics[width=0.48\textwidth]{Images/Figure2-CNNFilter}
-        \end{center}
-        \caption{CNN Filter}
-    \end{wrapfigure}
-
-    The height and width of the filter determines the region of spatial connectivity of the filter to a layer before. Depth of the filter indicates how many such filters there are in what's called a filter bank. A filter contains real numbered weights. The dot product of these weights with the input region that it's spatially connected to creates output activation map (also called feature map), as depicted in Figure 2. A filter convolves (slides) across its input with a predefined stride. As illustrated in Figure 1, the input is zero padded if the filter  does not align with the image at the edges as it convolves. The weight in the filter remains unchanged or is shared as convolutions are performed in a layer. The rationale of sharing weights is twofold: first it reduces the number of parameters in the model, and secondly any useful features identified in one part of the image can be re-used everywhere else without having to be independently learned as explained by Murphy in [27].\\
-
-    \noindent
-    \textbf{\textit{Forward Pass}} \\
-    There are mainly three types of components in a CNN layer - convolution, Rectified Linear Unit (ReLU) and pooling - and the layers are arranged in a sequence, as depicted in Figure 1. Each CNN layer transforms one volume of activations into another volume during the forward pass of processing. Filters are mainly involved in computation in the convolution layer and process its input as explained above. ReLU layer introduces non-linearity into the model by applying \(max (0,x)\) function element-wise to the activations produced by the filters in the convolution layer. Use of \(max (0,x)\) non-linear function results in accelerated training as compared to logistic or hyperbolic tangent function as explained by Krizhevsky \textit {et al.} [26], where the gradient in the saturating part of the activation function graph becomes very small (for very large or very small weights) resulting in sluggish training because of minuscule weight change during back-propagation. Introducing non-linearity with ReLU ensures that the CNN model does not collapse into a large linear model [27, 12]. Neural networks can therefore be thought of as a nonlinear generalization of the linear model, which by introducing the nonlinear transformation greatly enlarges the class of linear model [12].
-
-    \begin{wrapfigure}{r}{0.6\textwidth}
-        \begin{center}
-            \includegraphics[width=0.48\textwidth]{Images/Figure3-Pooling}
-        \end{center}
-        \caption{Pooling is used to create summary of activations generated by the ReLU layer. This figure shows two types of pooling commonly used in CNN. In average pooling average value of some output activations are used as a representative and the maximum value is used in max-pooling.}
-    \end{wrapfigure}
-
-    Activations from the ReLU layer are subsampled by the pooling layer. As shown in Figure 3, pooling layer subsamples the activations spatially and is usually done either by averaging or by computing the max over a small window of activations produced by the ReLU layer. Subsampling reduces the number of parameters in the model and hence the amount of computation in the network. It also results in small shift invariance as the image activations propagate through the network. Because of the subsampling, there's a progressive reduction in size of activations, as shown in Figure 1. \\
-
-    \noindent
-    \textbf{\textit{Back Propagation}}\\
-    Weights in the filters are the parameters of a CNN model and model fitting involves learning these weights using back-propagation. Back-propagation is an optimization algorithm where the goal is to find a set of value for model parameters that generalizes the learning in such a way that the model achieves superior classification or regression accuracy on data that it has not seen before. This goal is achieved by minimizing the error on training dataset by using gradient descent (or its variant) method for optimization. Validation dataset complements the training dataset to find training hyper-parameters that generalizes learning. Stochastic gradient descent is one of the most effective techniques for back-propagation where gradient of the cost function with respect to weights and the chain rule of derivatives are used to update model weights iteratively in minibatches. Use of minibatches in stochastic gradient descent accelerates the training and also helps to obtain unbiased estimate of the gradient by taking the average gradient on a minibatch, assuming examples in minibatches are drawn in identically and independently distributed (IID) fashion as explained by Goodfellow \textit {et al.} in [13].\\
-
-    \noindent
-    \textbf{\textit{Overfitting and regularization}}\\
-    Because of large numbers of parameters, CNN models have a proclivity to overfit when not designed with suitable regularization parameters or when there is not sufficient data to train the model. A large number of parameters in a neural network may result in a model that shows high variance when the model is trained on different training datasets as explained by Hastie \textit {et al.} in [12]. Overfitting is a manifestation of this problem in neural network where training fails to achieve good model generalizations resulting in good training accuracy, but poor performance on test dataset. Bias in a model is the other source of prediction error which is usually caused by wrong selection of model for the task. In case of overfitting, variance rather than bias dominates the estimation error. Regularization addresses the problem of overfitting by reducing variance significantly while not increasing the bias as explained by Goodfellow \textit {et al.} in [13]. \(L_1\) and \(L_2\) are two most commonly used regularization techniques in machine learning in general, including neural networks. Dropout, a technique proposed by Hinton \textit {et al.} in [14] is another regularization technique used specifically with neural network. In our implementation of localizing the ``hand-holding-leash'' landmark in a dog walking image, we explored \(L_1\), \(L_2\) regularizations as well as dropout and we report our findings in the experiments section 5.3. In [1] authors use \(L_2\) regularization as we explain in section 4.3.\\
-
-    \noindent
-    \textbf{\textit{Recurrent Neural Network(RNN)}} \\
-
-    \chapter{Detecting Small Object in an Image}
+    \chapter{Detecting a Small Object in an Image}
     \doublespacing
     An efficient object detection model in an image may use region proposals, as  one used by Girshick \textit {et al.} in R-CNN [7, 15]. Their two stage architecture is current state-of-the-art where the first stage extracts region proposals and the second stage uses these region proposals as input to a CNN which is pre-trained on an auxiliary dataset. This setup has shown remarkable performance improvement for prominent object detection in an image, but is not suitable for small landmarks as small objects do not have very distinctive features. A simple solution to address the issue of lack of distinctness for little landmark in an image can be either to magnify the image or take a high resolution image. As explained by Eggert \textit {et al.} in [8], this simple approach may not be very effective since computing convolutions in CNN grows quadratically with image dimensions and will result in unnecessary computation. Moreover, as explained by Chen \textit {et al.} in [6], low resolution inputs for small objects are deeply embedded  in the nature of visual perception and a robust vision system should be able to deal with it.
         
@@ -289,7 +239,7 @@
     \textit{Dog Walking Images (DWI) Dataset}\\
     We used our own dog walking images to test model's effectiveness on a different dataset. We use 310 images for training and 70 for testing. We annotated the coordinates of hand-holding-leash part of the image. The leash bounding box was already annotated in our dataset.
 
-    \chapter{Implementation of Little Landmark Model}
+    \chapter{Implementation of the Little Landmark Model}
     \doublespacing
     Authors of original paper provided us their Matlab implementation for the model. We used that codebase to create our own implementation of the model using TensorFlow\textsuperscript{\textregistered} and Python. We tested fidelity of our implementation by comparing our test results with the results authors published in their paper [1]. We used the same dataset as the authors' used for training and testing the model and found that our model performed similar to authors'. Figure 7 shows a comparison between the models. \\
 
@@ -313,7 +263,7 @@
     \textbf{\textit{Training Detail}}\\
     We tested the Tensorflow\textsuperscript{\textregistered} model on a Linux computer with a GPU. We trained the model for 3100  epochs where each epoch trained on a shuffled set of 1920 images in batches of ten images. The training ran for about 107 hours.
 
-    \section{Model Modifications and Experiments}
+    \section{Model Modifications}
 
     \noindent
     \textbf{\textit{Transfer Learning}}\\
