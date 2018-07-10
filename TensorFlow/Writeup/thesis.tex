@@ -200,10 +200,10 @@
 
     Figure 7 shows a schematic diagram of the little landmark localization architecture that localizes a car door handle in three steps. In this recurrent CNN architecture, the bottom convolutional layers are used to extract a feature map of the input image which becomes the common input to all steps on the top.  The three columns in the upper portion of Figure 7 correspond to the stepwise procedure that detects little landmark in the last step. Each prediction step \textit{s} in the model generates location of the latent landmark (red blob) and predicts the location of next latent landmark (blue blob). The prediction for the next step is encoded as a feature map \(P^{(s)}\) and along with the image feature map (generated at the bottom half of Figure 7) is used as input to the next step. The loss calculation for the model is explained later in section 4.3, but it's worth noting here that the difference between prediction (blue blob) in step \textit {s-1} and the generated latent landmark location (red blob) in step \textit {s} contributes to total error of an iteration.
 
-    \begin{figure}[h]
+    \begin{figure}[h!]
       \centering
-      \includegraphics[width=12cm, height=12cm]{Images/Figure5-Architecture}
-      \caption{Little Landmark CNN Architecture. In this architecture, an image enters the system from the bottom and the final prediction for the door handle of the car is made in step 3 of the process. The input image goes thru six layers of CONV-RELU transformations. The output from CONV6/RELU6 layer is an input to all three prediction steps above. The red blob is the prediction for a latent landmark in that step and is used to predict the location of next latent landmark. This information is encoded as a feature map with radial basis kernel (blue blob) and is passed as a feature to the next step. Coordinates of the little landmark are predicted in the last step. CONV/RELU boxes of the same color shows that parameters are shared in those layers. \textit{This figure is best viewed in color.}}
+      \includegraphics[width=16cm, height=16cm]{Images/Figure5a-Architecture}
+      \caption{Little Landmark CNN Architecture. In this architecture, an image enters the system from the bottom and the final prediction for the door handle of the car is made in step 3 of the process. The input image goes thru six layers of CONV-RELU transformations. The output from CONV6/RELU6 layer is an input to all three prediction steps above. The red blob is the prediction for a latent landmark in that step and is used to predict the location of next latent landmark. This information is encoded as a feature map with radial basis kernel (blue blob) and is passed as a feature to the next step. Coordinates of the little landmark are predicted in the last step. CONV/RELU boxes of the same color shows that parameters are shared in those layers. \textit{This figure is best viewed in color and with zoom.}}
       \label{fig:arch}
     \end{figure}            
 
@@ -354,8 +354,8 @@
 
     \begin{figure}[h]
       \centering
-      \includegraphics[width=12cm, height=9cm]{Images/Figure11-Modified-LL}
-      \caption{Little landmarks architecture modified using transfer learning. This model used features learned by the VGG-16 network as an input to rest of the model. As before, an image enters the system from the bottom and the final prediction for the door handle of the car is made in step 3 of the process. The bridge layer is use to transform output dimensions of VGG-16 model so that it dovetails with the upper part of Little Landmarks' architecture. \textit{This figure is best viewed in color.}}
+      \includegraphics[width=16cm, height=12cm]{Images/Figure11-Modified-LL}
+      \caption{Little landmarks architecture modified using transfer learning. This model used features learned by the VGG-16 network as an input to rest of the model. As before, an image enters the system from the bottom and the final prediction for the door handle of the car is made in step 3 of the process. The bridge layer is use to transform output dimensions of VGG-16 model so that it dovetails with the upper part of Little Landmarks' architecture. \textit{This figure is best viewed in color and with zoom.}}
       \label{fig:tl_arch}
     \end{figure}        
 
