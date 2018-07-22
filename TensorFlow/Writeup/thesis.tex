@@ -354,51 +354,38 @@
     \textbf{Experiment 1: Transfer Learning on Car Door Handle Dataset}\\    
     In this experiment I used the modified model that used VGG-16 model with transfer learning (Figure 12). The objective of this experiment was to demonstrate that the training time of the model proposed by Singh \textit{et al}.\ [1] can be improved if the model's weights are initialized by weights of a pre-trained model. I trained the model on the same car door handle dataset as the original model until the performance of the modified model was comparable to Singh \textit{et al}.\'s model. During training weights of the pre-trained VGG-16 model were fixed and fine tuning was performed only for the weights in regression steps of the model. The modified model needed about 46 hours to train for 530 epochs. I observed about 57\% improvement in training time of the modified model when compared to the original. Figure 13(a) shows the normalized distance vs. detection rate plot for this experiment.
 
-    %\begin{wraptable}{r}{1.0\linewidth}
-    %\centering
-    %\tiny
     \begin{table}[t]
     \centering
     \small
-    \begin{tabular}{ | p{1.6cm} | p{1.6cm} | p{1.6cm} | p{1.6cm} |  p{1.6cm}| }
+    \begin{tabular}{ | p{1.8cm} | p{1.8cm} | p{1.8cm} | p{2.2cm} | p{2.2cm} | p{2.2cm} |  p{1.8cm}| }
     \hline
-    Normalized Distance &  \multicolumn{4}{|c|}{Detection Rate} \\ \hline
-    & Original & Experiment1 & Experiment2 & Experiment3 \\ \hline
-    0.01 &  0.29 & 0.28 & 0.00 & 0.01 \\ \hline
-    0.02 & 0.71 & 0.49 & 0.00 & 0.02 \\ \hline
-    0.03 & 0.81 & 0.73 & 0.00 & 0.12 \\ \hline
-    0.04 & 0.86 & 0.83 & 0.00 & 0.23 \\ \hline
-    0.05 & 0.90 & 0.91 & 0.00 & 0.44 \\ \hline
-    0.06 & 0.88 & 0.94 & 0.14 & 0.46 \\ \hline
-    0.07 & 0.90 & 0.94 & 0.14 & 0.65 \\ \hline
-    0.08 & 0.93 & 0.95 & 0.14 & 0.66 \\ \hline
-    0.09 & 0.93 & 0.97 & 0.43 & 0.75 \\ \hline
-    0.10 & 0.97 & 0.98 & 0.43 & 0.75 \\ \hline
+    Normalized Distance &  \multicolumn{6}{|c|}{Detection Rate} \\ \hline
+    & Original & Experiment1 & Experiment2(a) & Experiment2(b) & Experiment2(c) & Experiment3 \\ \hline
+    0.01 & 0.29 & 0.28 & 0.00 & 0.00 & 0.00 & 0.01 \\ \hline
+    0.02 & 0.71 & 0.49 & 0.00 & 0.00 & 0.00 & 0.02 \\ \hline
+    0.03 & 0.81 & 0.73 & 0.00 & 0.00 & 0.00 & 0.12 \\ \hline
+    0.04 & 0.86 & 0.83 & 0.00 & 0.00 & 0.29 & 0.23 \\ \hline
+    0.05 & 0.90 & 0.91 & 0.00 & 0.14 & 0.43 & 0.44 \\ \hline
+    0.06 & 0.88 & 0.94 & 0.14 & 0.00 & 0.29 & 0.46 \\ \hline
+    0.07 & 0.90 & 0.94 & 0.14 & 0.00 & 0.57 & 0.65 \\ \hline
+    0.08 & 0.93 & 0.95 & 0.14 & 0.14 & 0.43 & 0.66 \\ \hline
+    0.09 & 0.93 & 0.97 & 0.43 & 0.29 & 0.71 & 0.75 \\ \hline
+    0.10 & 0.97 & 0.98 & 0.43 & 0.29 & 0.71 & 0.75 \\ \hline
     \end{tabular}
-    \caption{Experiment Results}
+    \caption{This table displays test accuracies of various models that I discussed in chapter 5. Experiment 1 was performed on the model that used transfer learning (figure 12 shows architecture of this model). Test accuracy of this model was similar to the original model proposed by Singh \textit{et al}.\ [1]. Experiment 2(a) shows test accuracy of the model depicted in figure 12, when the model is trained on dog-walking images; in this case activations from \textit{pool4} layer of a pre-trained VGG-16 [2] model were used. Experiment 2(b) shows test accuracy of a model where five-step training was used instead of three, on dog-walking images. Experiment 2(c) was similar to experiment 2(a) except for the fact that activations from \textit{pool3} layer of VGG-16 model [2] were used. Model in experiment 3 was trained on the car-door-handle dataset, but the training used same size of data as in experiment 2(a).}
     \end{table}
-    %\caption{Experiment Results}
-    %\label{table:exp}
-    %\end{wraptable}        
 
     \noindent
-    %\textbf{Experiment 2}\\   
     \textbf{Experiment 2: Transfer Learning on Dog-Walking Dataset}\\               
-    In this experiment I trained the same network as in experiment 1 with dog walking images. The objective of this experiment was to exploit the idea proposed by Singh \textit{et al}.\ to localize on hand-holding-leash part of the dog-walking image. 310 training and 70 test images were used in this experiment to localize hand-holding-leash part of the image. I trained the model for 96 hours and observed near perfect training accuracy. However, I saw very poor test accuracy as shown in Figure 13(b).    
+    In this experiment I trained the same network as in experiment 1 with dog walking images. The objective of this experiment was to exploit the idea proposed by Singh \textit{et al}.\ to localize on hand-holding-leash part of the dog-walking image. 310 training and 70 test images were used in this experiment to localize hand-holding-leash part of the image. I trained the model for 96 hours and observed near perfect training accuracy. However, I observed very poor test accuracy as shown in Figure 13(b).    
 
     The model appeared to overfit by memorizing features of training images and it did not seem to learn any general pattern for localization. I trained the model with weight loss values of 0.005 and 0.0005 also in addition to 0.00005, which was used for \(L_2\) regularization in the original model. I also experimented with \(L_1\) regularization. None of these method resulted in any performance improvement. I also used dropouts [14] for regularization, but did not see any performance improvement.
 
-    Since context plays an important role in little landmark's localization I changed the model to localize in five steps instead of three. My rational for this approach was that a model localized in five steps may pick up better context information which may result in better generalization. However, this approach also did not work.
+    Since context plays an important role in little landmark's localization I changed the model to localize in five steps instead of three. My rational for this approach was that a model localized in five steps may pick up better context information which may result in better generalization. However, this approach also did not work. Plot of this experiment is shown in figure 13(c).
 
-    Another unsuccessful attempt to improve performance was to use activations from \textit{pool3} layer of the VGG-16 model. The rational for this approach was that since latent and little landmarks are both not very distinctive, using filters from a lower layer, that may be more attuned to features of latent and little landmarks, may show better performance. \\
+    In another attempt to improve performance I used activations from \textit{pool3} layer of the VGG-16 model. The rational for this approach was that, since latent and little landmarks are both not very distinctive, using filters from a lower layer, that may be more attuned to features of latent and little landmarks, may show better performance. Plot of this experiment is shown in figure 13(d).\\
 
-    \noindent
-    \textbf{Experiment 3}\\             
-    In this experiment I trained the original TensorFlow model that I discussed in section 4.3, but with same amount of training data that was used for experiment 2. I anticipated that training the original little landmark model with small amount of data may render the model not as effective. For about the same duration of training, I did notice inferior performance in this experiment, but the performance was not as poor as in experiment 2. Figure 13(c) shows normalized distance vs. detection rate plot for this experiment. 
-
-    Table 1 shows a comparison of all model performances.\\
-
-    \begin{figure}
+    \begin{figure}[t!]
     \centering
         \begin{subfigure}[b]{.45\linewidth}
             \includegraphics[width=\linewidth]{Images/Figure12a}
@@ -410,16 +397,30 @@
             \caption{Experiment 2}
         \end{subfigure}
         \begin{subfigure}[b]{.45\linewidth}
-            \includegraphics[width=\linewidth]{Images/Figure12e}
+            \includegraphics[width=\linewidth]{Images/Figure12c}
             \caption{Experiment 3}
         \end{subfigure}        
+
+        \begin{subfigure}[b]{.45\linewidth}
+            \includegraphics[width=\linewidth]{Images/Figure12d}
+            \caption{Experiment 2}
+        \end{subfigure}
+        \begin{subfigure}[b]{.45\linewidth}
+            \includegraphics[width=\linewidth]{Images/Figure12e}
+            \caption{Experiment 3}
+        \end{subfigure}                
         \caption{Experiment Results.}
     \end{figure}   
 
+    \noindent
+    \textbf{Experiment 3}\\             
+    In this experiment I trained the original TensorFlow model that I discussed in section 4.3, but with same amount of training data that was used for experiment 2. I anticipated that training the original little landmark model with small amount of data may render the model not as effective. For about the same duration of training, I did notice inferior performance in this experiment, but the performance was not as poor as in experiment 2. Figure 13(e) shows normalized distance vs. detection rate plot for this experiment. 
 
-    \chapter{Conclusion}
+    \chapter{Discussion and Future Work}
     \doublespacing
-    As I discussed before little landmarks in an image do not have very distinctive features and the use of context is an effective technique for their detection. I demonstrated this by implementing the architecture originally proposed by Singh \textit{et al}.\ [1] and also by modifying their design to incorporate transfer learning. By using transfer learning I was able to show significant improvement in training time while not degrading performance of the model. I also tried to exploit transfer learning to overcome the problem of overfitting because of insufficient training data in the dog walking images dataset. Although many researchers [19, 22, 23] have been successful in this endeavor, I did not see that upturn in experiment 2. I next explain why this approach did not work in my case.\\
+    As I discussed earlier, little landmarks in an image do not have very distinctive features and the use of context is an effective technique for their detection. I demonstrated this by implementing the architecture originally proposed by Singh \textit{et al}.\. I trained and tested this model on car door handle dataset and observed model performance similar to reported by Singh \textit{et al}.\ [1]. In another implementation I modified Singh \textit{et al.}'s model [1] by incorporating transfer learning. In this implementation I used a pre-trained VGG-16 model [] to initialize weights of the model. By using transfer learning I was able to achieve significant improvement in training time without performance degradation of the model. 
+
+    I also tried to exploit transfer learning to overcome the problem of overfitting because of insufficient training data in the dog walking images dataset. Although many researchers [19, 22, 23] have been successful in this endeavor, I did not see that upturn in experiment 2. I next explain why this approach did not work in my case.\\
 
     \begin{figure}[h]
       \centering
@@ -435,9 +436,10 @@
       \label{fig:dwi}
     \end{figure}            
 
-    The comparison of results between experiment 1 and experiment 3 (Table 1) demonstrates that lack of data does impact a model accuracy. However, comparison between results of experiment 2 and experiment 3 shows that lack of training data resulted in much worse performance in dog walking images as compared to cars images. Figure 14 shows some representative images of cars used in the training to localize the car door handle. In all these images location of the door handle has such a regular spatial configuration that latent landmarks can be consistently found, in other words the context for little and latent landmarks are consistent across images. We discovered that for a three-step localization, the first latent landmark was found near the front or rear wheel, the second in the door, which helped in the target detection in the third step. Whereas in dog walking images (Figure 15), the context around the ``hand-holding-leash'' landmark is not consistent between images and as a result the model does not train as well as the car door handle dataset model does.
+    The comparison of results between experiment 1 and experiment 3 (Table 1) demonstrates that lack of data does impact a model accuracy. However, comparison between results of experiment 2 and experiment 3 shows that lack of training data resulted in much worse performance in dog walking images as compared to cars images. Figure 14 shows some representative images of cars used in the training to localize the car door handle. In all these images location of the door handle has such a regular spatial configuration that latent landmarks can be consistently found, in other words the context for little and latent landmarks are consistent across images. We discovered that for a three-step localization, the first latent landmark was found near the front or rear wheel, the second in the door, which helped in the target detection in the third step. Whereas in dog walking images (Figure 15), the context around the ``hand-holding-leash'' landmark is not consistent between images and as a result the model does not train as well as the car door handle dataset model does.\\
 
-    \chapter{Future Work}
+    \noindent
+    \textbf{\textit{Future Work}}\\                   
     \doublespacing
     A hallmark of CNN models is their ability to learn invariant features of an image so that the prediction or classification accuracy is not impacted by variability in an image. Xu \textit {et al}.\ [24] explain that representations in very top layer of a CNN distills information in an image down to the most salient objects. However this property of CNN is not very useful for tasks like small object detection since they are defined more by the context. They propose an attention based model [24] where they argue that using low level representations may help preserve the semantic information in an image. In their work they draw a parallel between this approach and presence of attention in the human vision system. They use this insight to create a Long Short Term Memory (LSTM) based CNN system that automatically learns to describe the content of images. I argue that a similar approach of using attention based model can be explored for identification for small objects in an image.
 
