@@ -1,7 +1,8 @@
 \documentclass [11pt,letterpaper ,twoside ,openany ]{report}
 
-\title{Localizing Little Landmarks with Transfer Learning}
-\author{Sharad Kumar}
+\title{}
+\date{}
+%\author{Sharad Kumar}
 
 \usepackage[utf8]{inputenc}
 \usepackage[english]{babel}
@@ -47,17 +48,75 @@
 \usepackage{multirow}
 
 \begin{document}
-  \maketitle
-  \tableofcontents
 
+  \begin{titlepage}
+      \begin{center}
+          \vspace*{1cm}
+          
+          \Huge
+          Localizing Little Landmarks with \\ 
+          Transfer Learning
+          
+          
+          \vspace{2cm}
+          \normalsize
+          by\\
+          Sharad Kumar
+          
+          \vspace{5cm}
+          
+          \normalsize
+          A thesis submitted in partial fulfillment of the \\
+          requirements for the degree of \\
+          Master of Science \\
+          in \\
+          Computer Science
+
+          
+          \vspace{3cm}
+          
+          Thesis Committee: \\
+          Melanie Mitchell, Chair \\
+          Bart Massey \\
+          Kristin Tufte
+
+          \vspace{1cm}
+          Portland State University\\
+          \the\year
+          
+      \end{center}
+  \end{titlepage}
+
+
+  \maketitle
+    \pagenumbering{roman} 
     \begin{abstract}
     Locating a small object in an image --- like a mouse on a computer desk or the door handle of a car --- is an important computer vision problem to solve because in many real life situations a small object may be the first thing that gets operated upon in the image scene. While a significant amount of artificial intelligence and machine learning research has focused on localizing prominent objects in an image, the area of small object detection has remained less explored. In my research I explore the possibility of using context information to localize small objects in an image. Using a Convolutional Neural Network (CNN), I create a regression model to detect a small object in an image where model training is supervised by coordinates of the small object in the image. Since small objects do not have strong visual characteristics in an image, it's difficult for a neural network to discern their pattern because their feature map exhibits low resolution rendering a much weaker signal for the network to recognize. Use of context for object detection and localization has been studied for a long time. This idea is explored by Singh \textit{et al}.\ \cite{Singh_2016_CVPR} for small object localization by using a multi-step regression process where  spatial context is used effectively to localize small objects in several datasets. I extend the idea in this research and demonstrate that the technique of localizing in steps using contextual information when used with transfer learning can significantly reduce model training time.
     \end{abstract}    
 
+    \begin{center}
+      \vspace*{\fill}
+      \section*{Acknowledgement}
+        Here!
+      \vspace*{\fill}
+    \end{center}
+    
+
+    \tableofcontents
     \listoffigures
     \listoftables
 
+    \newpage
+    \begin{center}
+      \Large
+      \vspace*{\fill}
+      Dedicated to my son, for his patience while daddy worked...
+      \vspace*{\fill}
+    \end{center}    
+
+
     \chapter{Introduction}
+    \pagenumbering{arabic} 
     \doublespacing
     We use myriad small objects everyday without noticing their presence. We manipulate an inconspicuous car door handle when interacting with the car, use a barely visible light switch as we enter a dark room and a computer mouse may be the first object we operate when we sit down to use a computer. Despite the usefulness of small objects, their detection in an image is a relatively unexplored area in computer vision. Detection of small objects in an image is a difficult task, since these objects often do not have distinctive appearance. While Convolutional Neural Network (CNN) architectures have demonstrated superior performance for classification or localization of salient objects in an image, these architectures have not been very effective for identifying objects or relationships that occupy a small part of an image, since low resolution of small objects provide weak signal to the network for recognition. Another difficulty in small object detection, as noted by Chen \textit{et al}.\ \cite{chen2016r}, is that the precision requirement for accurate localization of small objects is several magnitudes higher as compared to large objects. The reason for this predicament is that the bounding box of a small object is much smaller as compared to the bounding box of a large object in an image and as a result the available pixels that the predicted bounding box of a small object in an image can deviate from the actual bounding box is much lesser when compared to the number of pixels the predicted bounding box of a large object can deviate from the actual one.
 
@@ -83,16 +142,16 @@
 
     Researchers at Portland State University have created a labeled dataset of ``dog-walking'' images as part of a project on recognizing visual situations in images. Chapter 5 provides statistics of this dataset. I use this dataset to test the effectiveness of little landmark CNN model to localize the ``hand-holding-leash'' relationship in a ``dog-walking'' image. Successful localization of this little landmark would be useful for the overall task of detecting relevant parts of the ``walking a dog'' visual situation (Figure 2), such as likely location of the dog and the person walking the dog in the image.
 
-    I performed four main experiments on the little landmark CNN model. In the first experiment, I recreated the model using TensorFlow \cite{girija2016tensorflow} and trained it from scratch using the car door handle dataset to localize a car door handle in the image of a car. The purpose of this experiment was to demonstrate that my model faithfully replicates the original model. The test accuracy for this model was similar to that reported by Singh \textit{et al}.\ In the second experiment, I used transfer learning to modify the model and observed significant improvement in training time for the same dataset and achieved the same accuracy as in the first experiment. In the third experiment I trained the same model as in the second experiment, but localized on ``hand-holding-leash'' landmark in dog walking images. The localization in the third experiment performed poorly. The size of data available for in experiment 3 was about 20\% of the size of data used in experiment 2. In the last experiment, I repeated experiment 2, but with same size of data that was used in experiment 3. The test accuracy in this case was inferior than that of of experiment 2, but better than experiment 3. I discuss these experiments and results in more detail in section 5.2.
+    I performed four main experiments on the little landmark CNN model. In the first experiment, I recreated the model using TensorFlow \cite{girija2016tensorflow} and trained it from scratch using the car door handle dataset to localize a car door handle in the image of a car. The purpose of this experiment was to demonstrate that my model faithfully replicates the original model. The test accuracy for this model was similar to that reported by Singh \textit{et al}.\ In the second experiment, I used transfer learning to modify the model and observed significant improvement in training time for the same dataset and achieved the same accuracy as in the first experiment. In the third experiment I trained the same model as in the second experiment, but localized on ``hand-holding-leash'' landmark in dog-walking images. The localization in the third experiment performed poorly. The size of data available for experiment 3 was about 20\% of the size of data used in experiment 2. In the last experiment, I repeated experiment 2, but with same size of data that was used in experiment 3. The test accuracy in this case was inferior than that of of experiment 2, but better than experiment 3. I discuss these experiments and results in more detail in chapter 6.
 
-    The remainder of this thesis is organized as follows. I discuss related work in chapter 2. Chapter 3 contains a brief discussion of CNNs, the mechanics of training a CNN model and how regularization is used in finding a balance between bias and variance to minimize generalization error. In Chapter 4 I explain the CNN architecture for the little landmark localization task and also discuss the prediction model for little and latent landmarks. In chapter 5 I discuss my model modifications and present the results of my experiments. I conclude in Chapter 6 where I summarize my research findings and and discuss possible extensions to this work.
+    The remainder of this thesis is organized as follows. Chapter 2 contains a brief discussion of CNNs, the mechanics of training a CNN model and how regularization is used in finding a balance between bias and variance to minimize generalization error. I discuss related work in chapter 3. In chapter 4 I explain the CNN architecture for the little landmark localization task and also discuss the prediction model for little and latent landmarks. In chapter 5 I discuss my model modifications and in chapter 6 I present results of my experiments. I conclude in chapter 7 where I summarize my research findings and and discuss possible extensions to this work.
 
     \chapter{Background}
     \doublespacing
     Since its resurgence in 2012, when a neural network based architecture called AlexNet was proposed by Krizhevsky \textit{et al}.\ \cite{krizhevsky2012imagenet} for image classification of the ImageNet \cite{russakovsky2015imagenet} dataset, a variant of neural network architecture called Convolutional Neural Networks (CNN) has achieved significant improvement in image classification as well as regression tasks. Another influential work in this area was done by Girshick \textit{et al}.\ \cite{girshick2014rich} where they propose an architecture that uses region proposals with CNN for object localization. Their method is called R-CNN. Understanding of the CNN architecture and the object detection scheme in R-CNN architecture is necessary for understanding the little landmark localization system proposed by Singh \textit{et al}.\ and my extension to their architecture. In this chapter I provide an overview of CNN and R-CNN architectures. 
 
      \section{Convolutional Neural Networks (CNNs)}
-     A CNN is a deep learning model \footnote {Deep Learning AI systems can be represented as a deep graph with many layers that represent hierarchical structure of the learning network. These systems understand the world in terms of a hierarchy of concepts, with each concept defined through its relation to simpler concepts [13].} and is essentially a special kind of neural network that can be used to solve classification or regression problems. In a tradition neural network, the parameter values (weights) of the model are stored in a two-dimensional matrix and the interaction between input and output layers of the models is encoded as the result of multiplication operations between the parameter matrix and a one-dimensional input vector, whereas the connectivity between input and output units in a CNN is partial in the sense that an input unit is connected only to a few output units --- via a weight vector (called a kernel or filter). Sparse interactions between input and output units in a CNN results in an architecture where training is much more efficient because of reduced number of parameters in the model as compared to the number of parameters in a traditional neural network of same depth. Another important design characteristic of a CNN is that weights in a kernel are shared across all interactions, which further reduces the number of parameters in the model. I explain CNN architecture in more detail next. 
+     A CNN is a deep learning model \footnote {Deep Learning AI systems can be represented as a deep graph with many layers that represent hierarchical structure of the learning network. These systems understand the world in terms of a hierarchy of concepts, with each concept defined through its relation to simpler concepts \cite{Goodfellow-et-al-2016}.} and is essentially a special kind of neural network that can be used to solve classification or regression problems. In a tradition neural network, the parameter values (weights) of the model are stored in a two-dimensional matrix and the interaction between input and output layers of the models is encoded as the result of multiplication operations between the parameter matrix and a one-dimensional input vector, whereas the connectivity between input and output units in a CNN is partial in the sense that an input unit is connected only to a few output units --- via a weight vector (called a kernel or filter). Sparse interactions between input and output units in a CNN results in an architecture where training is much more efficient because of reduced number of parameters in the model as compared to the number of parameters in a traditional neural network of same depth. Another important design characteristic of a CNN is that weights in a kernel are shared across all interactions, which further reduces the number of parameters in the model. I explain CNN architecture in more detail next. 
 
     \begin{figure}[h]
       \centering
@@ -114,7 +173,7 @@
 
     The weight values in a kernel do not change as it convolves across the input. The height and length of feature map produced by the  CONV stage of a layer is determined by the the kernel size and the stride. However, the depth of the feature map is determined by the architecture designer. The depth of the convolution dictates how many filters there are in what's called a filter bank. The rational for this design is that different filters in the filter bank of the convolution can learn different characteristics of the input. The fact that different filters in a filter bank learn different features of the input image and also that higher layers of the model learn features by using features learned by lower layers was demonstrated by Fergus \textit{et al}.\ [4, 5] using a \textit{Deconvolutional Network} that maps activations back to the input pixel space. 
 
-    The CONV stage in a CNN is followed by the ReLU stage that introduces non-linearity into the model by applying \(max (0,x)\) element-wise to the activations produced by kernels in the convolution layer. Introducing non-linearity with ReLU ensures that the CNN model does not collapse into a large linear model [27, 12, 29]. A CNN model (and neural networks in general) can therefore be thought of as a nonlinear generalization of a linear model, which by introducing the nonlinear transformation greatly enlarges the class of the linear model [29]. This feature of CNN allows it to fit the model using a non-linear function that is more suitable (in terms of lower test error) for the domain represented by the training dataset. Use of the \(max (0,x)\) non-linear function results in accelerated training as compared to logistic or hyperbolic tangent function as explained by Krizhevsky \textit{et al}.\ \cite{krizhevsky2012imagenet}. The gradient in the saturating part of logistic or hyperbolic tangent activation functions becomes very small (for very large or very small weights) resulting in sluggish training because of minuscule weight change during training.
+    The CONV stage in a CNN is followed by the ReLU stage that introduces non-linearity into the model by applying \(max (0,x)\) element-wise to the activations produced by kernels in the convolution layer. Introducing non-linearity with ReLU ensures that the CNN model does not collapse into a large linear model [27, 12, 29]. A CNN model (and neural networks in general) can therefore be thought of as a nonlinear generalization of a linear model, which by introducing the nonlinear transformation greatly enlarges the class of the linear model \cite{hastie-et-al-2008}. This feature of CNN allows it to fit the model using a non-linear function that is more suitable (in terms of lower test error) for the domain represented by the training dataset. Use of the \(max (0,x)\) non-linear function results in accelerated training as compared to logistic or hyperbolic tangent function as explained by Krizhevsky \textit{et al}.\ \cite{krizhevsky2012imagenet}. The gradient in the saturating part of logistic or hyperbolic tangent activation functions becomes very small (for very large or very small weights) resulting in sluggish training because of minuscule weight change during training.
 
     \begin{wrapfigure}{r}{0.5\textwidth}
         \begin{center}
@@ -123,11 +182,11 @@
         \caption{Pooling is used to create summary of activations generated by the ReLU layer. This figure shows two types of pooling commonly used in CNN. In average pooling, the average value of some output activations are used as a representative and the maximum value is used in max-pooling. \textit{This figure is best viewed in color.}}
     \end{wrapfigure}    
 
-    The ReLU stage in the CNN layer is followed by the pooling (POOL) stage. Activations from the ReLU are downsampled by the POOL stage. As shown in Figure 4, pooling layer downsamples the activations spatially and is usually done either by averaging or by computing the max over a small window of activations produced by the ReLU stage. Downsampling further reduces the number of parameters in the model and hence the amount of computation in the network. It also results in small shift invariance, since a small amount of change in the input will not change the output of a CNN layer, irrespective of whether average or max pooling is used. The use of pooling can be viewed as adding a strong prior that the function the layer learns must be invariant to small translations [13]. Because of the downsampling at this stage, there's a progressive reduction in size of the feature map generated by layers of the CNN, as shown in Figure 2. \\ 
+    The ReLU stage in the CNN layer is followed by the pooling (POOL) stage. Activations from the ReLU are downsampled by the POOL stage. As shown in Figure 4, pooling layer downsamples the activations spatially and is usually done either by averaging or by computing the max over a small window of activations produced by the ReLU stage. Downsampling further reduces the number of parameters in the model and hence the amount of computation in the network. It also results in small shift invariance, since a small amount of change in the input will not change the output of a CNN layer, irrespective of whether average or max pooling is used. The use of pooling can be viewed as adding a strong prior that the function the layer learns must be invariant to small translations \cite{Goodfellow-et-al-2016}. Because of the downsampling at this stage, there's a progressive reduction in size of the feature map generated by layers of the CNN, as shown in Figure 2. \\ 
 
     \noindent
     \textbf{\textit{Forward pass}}\\
-    As shown in Figure 2, each CNN layer transforms one volume of activations into another volume during the forward pass of the processing and the system makes a prediction at the rightmost layer on the model. As discussed above, these activations are generated by doing a dot product of the kernel with part of the input as the kernel convolves over the input. In this scheme, the weight values in a kernel do not change as it convolves across the input. This is a critical design decision of CNNs, because this scheme ensures that any useful features identified in one part of the image can be re-used everywhere else without having to be independently learned, as explained by Murphy [27]. Using the kernel in such a fashion introduces a strong prior probability distribution over the parameters of a layer, which warrants that the weights for one hidden unit must be identical to the weights of its neighbor but shifted in space [13].\\
+    As shown in Figure 2, each CNN layer transforms one volume of activations into another volume during the forward pass of the processing and the system makes a prediction at the rightmost layer on the model. As discussed above, these activations are generated by doing a dot product of the kernel with part of the input as the kernel convolves over the input. In this scheme, the weight values in a kernel do not change as it convolves across the input. This is a critical design decision of CNNs, because this scheme ensures that any useful features identified in one part of the image can be re-used everywhere else without having to be independently learned, as explained by Murphy \cite{Murphy2012}. Using the kernel in such a fashion introduces a strong prior probability distribution over the parameters of a layer, which warrants that the weights for one hidden unit must be identical to the weights of its neighbor but shifted in space \cite{Goodfellow-et-al-2016}.\\
 
     \noindent
     \textbf{\textit{Model Training using Back-Propagation}} \\
@@ -145,7 +204,7 @@
 
     \noindent
     \textbf{\textit{Overfitting and Regularization}}\\    
-    Because of their large numbers of parameters, CNN models have a proclivity to overfit when not designed with suitable regularization parameters or when there is not sufficient data to train the model. Overfitting results in a model that shows high variance when the model is trained on different training datasets (Hastie \textit{et al}.\ [12]). Because of overfitting in a CNN, the training fails to achieve good model generalizations resulting in good training accuracy, but poor performance on test datasets. Bias in a model is another source of prediction error which is usually caused by wrong selection of model for the task. In case of overfitting, variance rather than bias dominates the estimation error. Regularization addresses the problem of overfitting by reducing variance significantly while increasing the bias only a little bit (Goodfellow \textit{et al}.\ [13]). 
+    Because of their large numbers of parameters, CNN models have a proclivity to overfit when not designed with suitable regularization parameters or when there is not sufficient data to train the model. Overfitting results in a model that shows high variance when the model is trained on different training datasets (Hastie \textit{et al}.\ \cite{hastie-et-al-2014}). Because of overfitting in a CNN, the training fails to achieve good model generalizations resulting in good training accuracy, but poor performance on test datasets. Bias in a model is another source of prediction error which is usually caused by wrong selection of model for the task. In case of overfitting, variance rather than bias dominates the estimation error. Regularization addresses the problem of overfitting by reducing variance significantly while increasing the bias only a little bit (Goodfellow \textit{et al}.\ \cite{Goodfellow-et-al-2016}). 
 
     \(L_1\) and \(L_2\) are two commonly used regularization techniques in machine learning in general, including neural networks. Both of these are ways to introduce parameter norm penalty (the regularization term in the error function) to the error function. If \(J(w; X, y) \) represents the original error function, where \(w\) represents parameters of the model, \textit{X} represents training data and \textit{y} represents expected output vector for the training data, then the following represents error function with the regularization term
 
@@ -352,7 +411,7 @@
       \label{fig:tl_arch}
     \end{figure}        
 
-    In the modified architecture I used a bridge layer that takes \textit{pool4} activations from the VGG-16 model as input and performs a layer of convolutions to modify output dimensions so that it conforms with rest of the architecture. I used a publicly available pre-trained VGG-16 model [21] as the basis of my model. I used same image preprocessing that was used for the original little landmark model and fed a mini-batch of ten images to VGG-16 model, as before. Internally the VGG-16 implementation warped images to 224 x 224 x 3 before feeding it to the network.    
+    In the modified architecture I used a bridge layer that takes \textit{pool4} activations from the VGG-16 model as input and performs a layer of convolutions to modify output dimensions so that it conforms with rest of the architecture. I used a publicly available pre-trained VGG-16 model \cite{machrisaa2017} as the basis of my model. I used same image preprocessing that was used for the original little landmark model and fed a mini-batch of ten images to VGG-16 model, as before. Internally the VGG-16 implementation warped images to 224 x 224 x 3 before feeding it to the network.    
 
     \chapter{Experiments and Results}
     \doublespacing
@@ -461,42 +520,6 @@
 
     Another possible topic for future work is the development of a better metric to measure the effectiveness of small object detection. Chen \textit {et al}.\ \cite{chen2016r} discuss that one of the challenges of small object identification is that we do not know how difficult this task is or how well do existing object detectors work. I found that metric used for measuring performance of small object detection is not consistent between research groups --- some researchers use Intersection over Union (IoU) whereas others use some sort of normalization for Euclidian distance between the prediction and the ground truth. Because of this it's difficult to compare performance of different small object localization models and a metric that can be used for such comparison would be very useful tool in this area of work.
 
-    \iffalse
-    \begin{thebibliography}{9}
-            
-        \bibitem{Hastie2014}
-          Trevor Hastie, Gareth James, Daniela Witten, Robert Tibshirani,
-          \textit{An Introduction to Statistical Learning},
-          Springer,
-          2014.                                        
-
-        \bibitem{Goodfellow2016}
-          Ian Goodfellow, Yoshua Bengio, Aaron Courville,
-          \textit{Deep Learning},
-          MIT Press,
-          2016.                                        
-           
-        \bibitem{machrisaa2017}
-          machrisaa,
-          \textit{VGG-16 TensorFlow},
-          https://github.com/machrisaa/tensorflow-vgg,
-          2017.                    
-
-
-        \bibitem{Murphy2012}
-          Kevin Murphy,
-          \textit{Machine Learning},
-          MIT Press,
-          2012.            
-
-        \bibitem{Hastie2014}
-          Trevor Hastie, Robert Tibshirani, Jerome Friedman,
-          \textit{The Elements of Statistical Learning},
-          Springer,
-          2008.                         
-
-    \end{thebibliography}
-    \fi
     \printbibliography
 
 \end{document}
