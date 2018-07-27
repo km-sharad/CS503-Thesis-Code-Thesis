@@ -97,7 +97,9 @@
     \begin{center}
       \vspace*{\fill}
       \section*{Acknowledgement}
-        Here!
+        \begin{flushleft}
+        This thesis would not be possible without Professor Melanie Mitchell's guidance through the research. Her savvy idea to use deep learning for identifying a small object helped me gain more insight into machine learning in general and deep learning in particular. I also want to acknowledge Sheng Lundquist's help with TensorFlow for design, development and debugging of the model. Achnowledgement is in order for Saurabh Singh also who provided datasets and original code for this work.
+        \end{flushleft}
       \vspace*{\fill}
     \end{center}
     
@@ -110,7 +112,7 @@
     \begin{center}
       \Large
       \vspace*{\fill}
-      Dedicated to my son, for his patience while daddy worked...
+      \textit{Dedicated to my son, for his patience while daddy worked...}
       \vspace*{\fill}
     \end{center}    
 
@@ -131,14 +133,17 @@
 
     In this thesis I recreate the model proposed by Singh \textit{et al}.\ using TensorFlow \cite{girija2016tensorflow}. I train the model on the same dataset that was used by Singh \textit{et al}.\ The parameters in the original model are randomly initialized and the model is trained end-to-end. I propose a modification to the model by incorporating \textit {transfer learning}. Transfer learning is a process in which image features learned by a trained network can be used by another network for its own training. This techniques may result in reducing training time and may also be useful when there's is dearth of training data, as I explain in section 5.1 of this thesis. My goals in this thesis are following: i) test transfer learning as a way to speed up training of this system and observe the effect of fewer training examples on test accuracy of the model; and ii) to test generality of Singh \textit{et al.}'s model by training it on a new dataset whose spatial characteristics are different from the datasets used by Singh \textit{et al}.\
 
-    Singh \textit {et al}.\ demonstrate the robustness of their model by localizing small objects in several datasets, such as an electrical switch on a wall, a car door handle and the beak of a bird. Their results and the design philosophy that exploits context information for small object detection provides strong evidence that this technique can also be used for localization of other small objects in an image, since context is an important component that often helps in localizing an object in an image. However, as Singh \textit{et al}.\ train their model from scratch, their model takes a long time to train and needs a large amount of data for training. These limitations of their model was my motivation to modify their design and use transfer learning to build a more efficient model. Using transfer learning, parameters learned by a model that has been trained on a large dataset can be effectively used as the initial parameters for some other model. To exploit transfer learning, I modify the original model by repurposing a pre-trained VGG-16 \cite{simonyan2014very} model where I use activations from \textit{pool4} layer of the VGG-16 model to initialize part of the model and with experiments I demonstrate that incorporating  transfer learning in the model in such a way significantly reduces training time without affecting the model accuracy. VGG-16 is a deep CNN model created by K. Simonyan and A. Zisserman from University of Oxford that achieved 92.7\% accuracy in top-5 test categories and 70.5\% in top-1 test category on the Imagenet dataset \cite{russakovsky2015imagenet}. Imagenet is a dataset of over 14 million images belonging to 1000 categories. I demonstrate significant improvement in training time with my approach and report results in chapter 6.
+    Singh \textit {et al}.\ demonstrate the robustness of their model by localizing small objects in several datasets, such as an electrical switch on a wall, a car door handle and the beak of a bird. Their results and the design philosophy that exploits context information for small object detection provides strong evidence that this technique can also be used for localization of other small objects in an image, since context is an important component that often helps in localizing an object in an image. However, as Singh \textit{et al}.\ train their model from scratch, their model takes a long time to train and needs a large amount of data for training. These limitations of their model was my motivation to modify their design and use transfer learning to build a more efficient model. Using transfer learning, parameters learned by a model that has been trained on a large dataset can be effectively used as the initial parameters for some other model. To exploit transfer learning, I modify the original model by repurposing a pre-trained VGG-16 \cite{simonyan2014very} model where I use activations from \textit{pool4} layer of the VGG-16 model to initialize part of the model and with experiments I 
 
-    \begin{wrapfigure}{l}[9mm]{0.5\textwidth}
+    \begin{wrapfigure}{r}[9mm]{0.5\textwidth}
         \begin{center}
             \includegraphics[width=0.48\textwidth]{Images/Figure9-DWI}
         \end{center}
         \caption{Dog Walking Image from PSU Dog Walking dataset. Detection of the ``hand-holding-leash'' little landmark can help localize the dog walker and the dog in the image, and give evidence that this image is an example of the ``dog-walking'' situation. \textit{This figure is best viewed in color.}}
     \end{wrapfigure}    
+
+    \noindent
+    demonstrate that incorporating transfer learning in the model in such a way significantly reduces training time without affecting the model accuracy. VGG-16 is a deep CNN model created by K. Simonyan and A. Zisserman from University of Oxford that achieved 92.7\% accuracy in top-5 test categories and 70.5\% in top-1 test category on the Imagenet dataset \cite{russakovsky2015imagenet}. Imagenet is a dataset of over 14 million images belonging to 1000 categories. I demonstrate significant improvement in training time with my approach and report results in chapter 6.
 
     Researchers at Portland State University have created a labeled dataset of ``dog-walking'' images as part of a project on recognizing visual situations in images. Chapter 5 provides statistics of this dataset. I use this dataset to test the effectiveness of little landmark CNN model to localize the ``hand-holding-leash'' relationship in a ``dog-walking'' image. Successful localization of this little landmark would be useful for the overall task of detecting relevant parts of the ``walking a dog'' visual situation (Figure 2), such as likely location of the dog and the person walking the dog in the image.
 
@@ -262,7 +267,7 @@
             \includegraphics[height=4.5cm, width=6.75cm]{Images/Figure4b-LS}
             \caption{Light Switch Localization.}
         \end{subfigure}
-        \caption{Localization of the \textit{little landmark} in three steps. Ground truth locations are shown as a black triangle. Step 1, Step 2 and Step 3 are color coded as Red, Green and Blue respectively. Colored blobs show the locations of the latent landmarks for each step. Solid circles with numbers show the predicted location of the next latent landmark by each step. Dotted circles show the bandwidth of the radial basis kernel used to encode the predictions. The model discovers \textit{latent landmarks} in the first two steps that help find coordinates of the target in the third step. For the car door handle localization, in the first step, the model localizes near the front wheel of the car, gets little closer to the car door handle in second step and lands on the target in the third step. For the light switch localization, the process starts from the edge of the light-switch panel and the model detects the light switch in three steps. Image source: \cite{Singh_2016_CVPR}. \textit{This figure is best viewed in color and with zoom.}}
+        \caption{Localization of the \textit{little landmark} in three steps. Ground truth locations are shown as a black triangle. Step 1, Step 2 and Step 3 are color coded as Red, Green and Blue respectively. Colored blobs show the locations of the latent landmarks for each step. Solid circles show the predicted location of the next latent landmark by each step; dotted circles around solid circles show the bandwidth of the radial basis kernel used to encode the predictions. The model discovers \textit{latent landmarks} in the first two steps that help find coordinates of the target in the third step. For the car door handle localization, in the first step, the model localizes near the front wheel of the car, gets little closer to the car door handle in the second step and lands on the target in the third step. For the light switch localization, the process starts from the edge of the light-switch panel and the model detects the light switch in three steps. Image source: \cite{Singh_2016_CVPR}. \textit{This figure is best viewed in color and with zoom.}}
         \label{fig:localization}
     \end{figure}
 
@@ -276,7 +281,7 @@
     \begin{figure}[t!]
       \centering
       \includegraphics[width=16cm, height=16cm]{Images/Figure5a-Architecture}
-      \caption{Little Landmark CNN Architecture. In this architecture, an image enters the system from the bottom and the final prediction for the door handle of the car is made in step 3 of the process. The input image goes thru six layers of CONV-ReLU transformations. The output from CONV6/ReLU6 layer is an input to all three prediction steps above. The red blob is the prediction for a latent landmark in that step and is used to predict the location of next latent landmark. This information is encoded as a feature map with radial basis kernel (blue blob) and is passed as a feature to the next step. Coordinates of the little landmark are predicted in the last step. CONV/ReLU boxes of the same color shows that parameters are shared in those layers. Image source: \cite{Singh_2016_CVPR}. \textit{This figure is best viewed in color and with zoom.}}
+      \caption{Little Landmark CNN Architecture. In this architecture, an image enters the system from the bottom and the final prediction for the door handle of the car is made in step 3 of the process. The input image goes thru six layers of CONV-ReLU transformations. The output from CONV6/ReLU6 layer is an input to all three prediction steps above. The red blob is the prediction for a latent landmark in that step and is used to predict the location of next latent landmark. This information is encoded as a feature map, marked as 1 and 2, with radial basis kernel (the blue blob) and is passed as a feature to the next step. Coordinates of the little landmark are predicted in the last step. CONV/ReLU boxes of the same color shows that parameters are shared in those layers. Image source: \cite{Singh_2016_CVPR}. \textit{This figure is best viewed in color and with zoom.}}
       \label{fig:arch}
     \end{figure}            
 
@@ -299,7 +304,7 @@
     \begin{figure}[t]
       \centering
       \includegraphics[width=\linewidth]{Images/Figure6-Grid}
-      \caption{Latent Landmark Prediction Grid. A separate logical grid (\textit{5} x \textit{5} in size shown on the left) is placed over each coordinate produced by CONV6/RELU6 layer (shown on the right). The grid has fixed values for \textit{x} and \textit{y} coordinated of each 25 grid points. The grid values when multiplied by the confidence value generated by the network predicts the \textit{latent landmark} for the next step. \textit{This figure is best viewed in color.}}
+      \caption{Latent Landmark Prediction Grid. A separate logical grid (\textit{5} x \textit{5} in size shown on the left) is placed over each coordinate produced by CONV6/RELU6 layer (shown on the right). The grid has fixed values for \textit{x} and \textit{y} coordinated of each 25 grid points. The grid values when multiplied by the confidence value generated by the network predicts the \textit{latent landmark} for the next step. Image source: \cite{Singh_2016_CVPR}. \textit{This figure is best viewed in color.}}
       \label{fig:grid}
     \end{figure}
 
@@ -337,7 +342,7 @@
             \includegraphics[height=5.0cm, width=7.9cm]{Images/Figure7b-TF}
             \caption{Result from my TensorFlow implementation}
         \end{subfigure}
-        \caption{Original vs. my model's test accuracy comparison. The graph on the left shows a plot of normalized distance vs. detection rate published by Singh \textit{et al}.\ The curve marked as Pred 3 shows the accuracy of the three step process. My implementation's test accuracy is plotted on the right side and shows comparable performance to the original Pred 3 curve. \textit{This figure is best viewed in color.}}
+        \caption{Original vs. my model's test accuracy comparison. The graph in (a) shows a plot of normalized distance vs. detection rate published by Singh \textit{et al}.\ The curve marked as Pred 3 shows the accuracy of the three step process. My implementation's test accuracy is plotted in (b) that shows comparable performance to the original Pred 3 curve. \textit{This figure is best viewed in color.}}
         \label{fig:compare.}
     \end{wrapfigure}       
 
@@ -389,7 +394,7 @@
             \includegraphics[height=3.8cm, width=3.8cm]{Images/Figure8c-Deconv}
             \caption{}
         \end{subfigure}
-        \caption{Visualization of features learned by a CNN model using the Deconvolutional Network. (a) shows layer 2 activation mapped to its pixel space and (b) shows image patch corresponding to (a). (c) shows layer 5 activation mapped to its pixel space and (d) shows image patch corresponding to (c). Image source: \cite{zeiler2014visualizing}. \textit{This figure is best viewed in color.}}
+        \caption{Visualization of features learned by a CNN model using a Deconvolutional Network \cite{zeiler2014visualizing}. (a) shows layer 2 activations mapped to its pixel space and (b) shows image patches corresponding to (a); (c) shows layer 5 activations mapped to its pixel space and (d) shows image patches corresponding to (c). Image source: \cite{zeiler2014visualizing}. \textit{This figure is best viewed in color.}}
         \label{fig:devonv}
     \end{figure}
 
@@ -408,7 +413,7 @@
     \begin{figure}[h]
       \centering
       \includegraphics[width=16cm, height=12cm]{Images/Figure11-Modified-LL}
-      \caption{Little landmarks architecture modified using transfer learning. This model used features learned by the VGG-16 network as an input to rest of the model. As before, an image enters the system from the bottom and the final prediction for the door handle of the car is made in step 3 of the process. The bridge layer is use to transform output dimensions of VGG-16 model so that it dovetails with the upper part of Little Landmarks' architecture. \textit{This figure is best viewed in color and with zoom.}}
+      \caption{Little landmarks architecture modified using transfer learning. This model used features learned by the VGG-16 network as an input to rest of the model. As in figure 8, an image enters the system from the bottom and the final prediction for the door handle of the car is made in step 3 of the process. The bridge layer is use to transform output dimensions of VGG-16 model so that it dovetails with the upper part of Little Landmarks' architecture. \textit{This figure is best viewed in color and with zoom.}}
       \label{fig:tl_arch}
     \end{figure}        
 
@@ -441,7 +446,7 @@
     0.09 & 0.93 & 0.97 & 0.43 & 0.29 & 0.71 & 0.75 \\ \hline
     0.10 & 0.97 & 0.98 & 0.43 & 0.29 & 0.71 & 0.75 \\ \hline
     \end{tabular}
-    \caption{This table displays test accuracies of various models that I discussed in chapter 5. Experiment 1 was performed on the model that used transfer learning (figure 12 shows architecture of this model). Test accuracy of this model was similar to the original model proposed by Singh \textit{et al}.\ \cite{Singh_2016_CVPR}. Experiment 2(a) shows test accuracy of the model depicted in figure 12, when the model is trained on dog-walking images; in this case activations from \textit{pool4} layer of a pre-trained VGG-16 \cite{simonyan2014very} model were used. Experiment 2(b) shows test accuracy of a model where five-step training was used instead of three, on dog-walking images. Experiment 2(c) was similar to experiment 2(a) except for the fact that activations from \textit{pool3} layer of VGG-16 model \cite{simonyan2014very} were used. Model in experiment 3 was trained on the car-door-handle dataset, but the training used same size of data as in experiment 2(a).}
+    \caption{This table displays test accuracies of various models discussed in chapter 5. Experiment 1 was performed on the model that used transfer learning (figure 12 shows architecture of this model). Test accuracy of this model was similar to the original model proposed by Singh \textit{et al}.\ \cite{Singh_2016_CVPR}. Experiment 2(a) shows test accuracy of the model depicted in figure 12, when the model is trained on dog-walking images; in this case activations from \textit{pool4} layer of a pre-trained VGG-16 \cite{simonyan2014very} model were used. Experiment 2(b) shows test accuracy of a model where a five-step training was used instead of three, on dog-walking images. Experiment 2(c) was similar to experiment 2(a) except for the fact that activations from \textit{pool3} layer of VGG-16 model \cite{simonyan2014very} were used. Model in experiment 3 was trained on the car-door-handle dataset, but the training used same size of data as in experiment 2(a).}
     \end{table}
 
     \noindent
@@ -499,7 +504,7 @@
     \begin{figure}[b!]
       \centering
       \includegraphics[width=\linewidth]{Images/Figure13-CDH}
-      \caption{Representative Images from Car Door Handle Dataset. \textit{This figure is best viewed in color.}}
+      \caption{Representative Images from Car Door Handle Dataset. Image source \cite{Singh_2016_CVPR}. \textit{This figure is best viewed in color.}}
       \label{fig:cdh}
     \end{figure}        
 
