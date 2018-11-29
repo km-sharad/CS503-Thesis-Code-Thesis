@@ -10,7 +10,8 @@ from tensorflow.python import debug as tf_debug
 import sys
 from scipy.misc import imresize
 
-data_dir = '../../../../../car_dataset/'
+# data_dir = '../../../../../car_dataset/'
+data_dir = '../../../../car_dataset/'
 #data_dir = '../../../../car_dataset/'
 total_visible_training_images = 1920    # Number of training images where car door handle is visible
 total_visible_test_images = 1200 # Number of validation images where car door handle is visible
@@ -116,7 +117,7 @@ with tf.Session() as sess:
   sess.run(init)
 
   # Restore variables from disk.
-  saver.restore(sess, "./ckpt/model1343.ckpt")
+  saver.restore(sess, "../TrainedModelsAndOutputs/CDHD/ckpt/model1343.ckpt")
   print("Model restored.")
 
   # Following two lines are for debugging
@@ -143,6 +144,15 @@ with tf.Session() as sess:
                                     {images: test_images, 
                                     out_locs: test_meta['out_locs'],
                                     org_gt_coords: test_meta['org_gt_coords']})  
+
+      print('*** pred 0: ', test_dict['pred_coord_0'])
+      print('*** pred 1: ', test_dict['pred_coord_1'])
+      print('*** pred 2: ', test_dict['pred_coord_2'])
+      # print('*** org: ', test_meta['org_gt_coords'])
+
+      if(batch == 5):
+        sys.exit() 
+
       avg_normalized_dist = calculteNormalizedTestDistance(test_dict['pred_coord'], 
                                             test_meta['org_gt_coords'],
                                             test_meta['bbox_heights'])

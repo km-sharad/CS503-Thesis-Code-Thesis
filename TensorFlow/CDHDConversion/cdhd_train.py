@@ -133,7 +133,7 @@ with tf.Session() as sess:
   sess.run(init)
 
   # Restore variables from disk.
-  saver.restore(sess, "./ckpt/model4845.ckpt")
+  saver.restore(sess, "../TrainedModelsAndOutputs/CDHD/ckpt/model1343.ckpt")
   print("Model restored.")
 
   # Following two lines are for debugging
@@ -159,6 +159,13 @@ with tf.Session() as sess:
                             org_gt_coords: meta['org_gt_coords']})
 
       # print('poc_shape: ', out_dict['poc_shape'])
+      print('**** x1_shape_1: ', out_dict['x1_shape_1'])       #DELETE
+      print('**** x2_shape_1: ', out_dict['x2_shape_1'])       #DELETE
+      print('**** x_shape_1: ', out_dict['x_shape_1'])       #DELETE
+      # print('**** pc_1: ', out_dict['pc_1'])       #DELETE
+      print('**** pc shape: ', out_dict['pc_shape'].shape)       #DELETE
+      print('**** out_locs_rs_shape: ', out_dict['out_locs_rs_shape'].shape)       #DELETE
+      print('**** nw_reshape_shape: ', out_dict['nw_reshape_shape'].shape)       #DELETE
 
       out_f = open('out_file.txt', 'a+')
       out_f.write(str(epoch) + ' ' + str(batch) + ' ' + str(out_dict['loss']) + '\n')

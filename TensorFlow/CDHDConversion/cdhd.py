@@ -185,6 +185,10 @@ def columnActivation(aug_x, column_num, fwd_dict):
 
   pc = tf.multiply(nw_reshape[:,:,None], out_locs_rs[None,:,:])
 
+  res['pc_shape'] = pc                      #DELETE
+  res['out_locs_rs_shape'] = out_locs_rs    #DELETE
+  res['nw_reshape_shape'] = nw_reshape      #DELETE
+
   pc = tf.reduce_sum(pc, axis=1)
   pc = tf.reshape(pc, [tf.shape(pc)[0], 1, tf.shape(pc)[1], 1])
 
@@ -322,6 +326,14 @@ def doForwardPass(x, out_locs, gt_loc):
     res_step = columnActivation(aug_x, i, fwd_dict)
     res_steps.append(res_step)
     out_x = res_step['x']
+
+    res_aux['pred_coord_' + str(i)] = res_step['x'][1]     #DELETE
+    res_aux['pc_shape_' + str(i)] = res_step['pc_shape']     #DELETE
+    res_aux['out_locs_rs_shape_' + str(i)] = res_step['out_locs_rs_shape']     #DELETE
+    res_aux['nw_reshape_shape_' + str(i)] = res_step['nw_reshape_shape']     #DELETE
+    res_aux['x1_shape_' + str(i)] = tf.shape(x)[1]          #DELETE
+    res_aux['x2_shape_' + str(i)] = tf.shape(x)[2]          #DELETE
+    res_aux['x_shape_' + str(i)] = tf.shape(x)              #DELETE
 
     #Output of step 1 goes as input to step 2 and output of step 2 goes as input to step 3
     #TODO: check size of x_sans_xa after data is fed. Note: checked on 12/3/17 - passed
@@ -465,6 +477,12 @@ def train(res_aux, global_step):
   ret_dict = {}
   ret_dict['loss'] = tf.reduce_sum(res_aux['loss'])
   ret_dict['pred_coord'] = res_aux['pred_coord']
+  ret_dict['pc_shape'] = res_aux['pc_shape_1']    #DELETE 
+  ret_dict['out_locs_rs_shape'] = res_aux['out_locs_rs_shape_1']    #DELETE 
+  ret_dict['nw_reshape_shape'] = res_aux['nw_reshape_shape_1']    #DELETE 
+  ret_dict['x1_shape_1'] = res_aux['x1_shape_1']    #DELETE
+  ret_dict['x2_shape_1'] = res_aux['x2_shape_1']    #DELETE
+  ret_dict['x_shape_1'] = res_aux['x_shape_1']    #DELETE
   # ret_dict['poc_shape'] = res_aux['res_steps'][2]['poc_shape']  #DELETE
 
   total_loss = tf.reduce_sum(res_aux['loss'])
@@ -486,5 +504,9 @@ def test(res_aux, global_step):
   ret_dict = {}
   ret_dict['loss'] = tf.reduce_sum(res_aux['loss'])
   ret_dict['pred_coord'] = res_aux['pred_coord']
+  ret_dict['pred_coord_0'] = res_aux['pred_coord_0']    #DELETE
+  ret_dict['pred_coord_1'] = res_aux['pred_coord_1']    #DELETE
+  ret_dict['pred_coord_2'] = res_aux['pred_coord_2']    #DELETE
+
   return ret_dict  
 
